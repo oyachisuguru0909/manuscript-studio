@@ -1,5 +1,3 @@
-"use client";
-
 import React, { useState } from "react";
 import {
   Sparkles,
@@ -32,13 +30,11 @@ import {
   Users,
   ChevronRight,
   RefreshCw,
-  Image as ImageIcon,
   ExternalLink,
   Palette,
   Navigation,
   Car,
   Target,
-  Download,
 } from "lucide-react";
 
 /* =========================================================================
@@ -365,14 +361,14 @@ ${COLOR_THEMES}
 
 const callClaudeAPI = async (systemPrompt, userContent, tools = null) => {
   const body = {
-    model: "claude-sonnet-4-20250514",
+    model: "claude-sonnet-4-6",
     max_tokens: 8000,
     system: systemPrompt,
     messages: [{ role: "user", content: userContent }],
   };
   if (tools) body.tools = tools;
 
-  const response = await fetch("/api/claude", {
+  const response = await fetch("https://api.anthropic.com/v1/messages", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(body),
@@ -478,8 +474,128 @@ const parseFieldedOutput = (text) => {
   return fields.length ? fields : [{ label: "出力", content: text }];
 };
 
-const FieldedOutput = ({ output, loading, onRevise, isRevising }) => {
+/* === セクション修正指示用：よく使うプリセット === */
+const REVISION_PRESETS = {
+  tone: {
+    label: "トーン調整",
+    items: [
+      { label: "もっと親しみやすく", instruction: "もっと親しみやすく、カジュアルなトーンに" },
+      { label: "もっとフォーマルに", instruction: "もっとフォーマルで丁寧な敬語表現に" },
+      { label: "もっとカジュアルに", instruction: "もっとカジュアルで気軽なトーンに" },
+      { label: "もっと熱量高く", instruction: "もっと情熱的で熱量の高いトーンに、応募意欲を引き出す表現で" },
+    ],
+  },
+  content: {
+    label: "内容調整",
+    items: [
+      { label: "もっと簡潔に", instruction: "情報量を減らし、もっと簡潔に。冗長な部分を削減" },
+      { label: "もっと具体的に", instruction: "抽象表現を減らし、具体的な数字やエピソードを盛り込んで" },
+      { label: "もっと詳しく", instruction: "情報量を増やし、より詳細で説得力のある内容に拡張" },
+      { label: "訴求を強く", instruction: "ベネフィットや訴求ポイントを強調し、応募したくなる文章に" },
+    ],
+  },
+  decoration: {
+    label: "装飾調整",
+    items: [
+      { label: "絵文字を増やす", instruction: "適切な絵文字をもっと追加し、視覚的に華やかに" },
+      { label: "絵文字を減らす", instruction: "絵文字を減らし、シンプルで落ち着いた雰囲気に" },
+      { label: "装飾をシンプルに", instruction: "装飾記号を最小限にし、読みやすく整理された見た目に" },
+      { label: "もっと華やかに", instruction: "見出し・装飾記号・絵文字を効果的に増やして華やかに" },
+    ],
+  },
+  target: {
+    label: "ターゲット調整",
+    items: [
+      { label: "若い世代向け", instruction: "20代の若手向けにトーン・内容を調整" },
+      { label: "ベテラン向け", instruction: "経験者・ベテラン向けに、専門性や責任ある業務を強調" },
+      { label: "未経験者向け", instruction: "未経験者でも安心できる、教育体制やサポートを強調" },
+      { label: "ミドル世代向け", instruction: "30〜40代のミドル世代向けに、安定性とキャリア両立を強調" },
+    ],
+  },
+};
+
+/* === 修正指示パネルコンポーネント（共通） === */
+const RevisionPanel = ({ open, onClose, onApply, isLoading, accentColor = "teal" }) => {
+  const [instruction, setInstruction] = useState("");
+  if (!open) return null;
+
+  const accentClasses = {
+    teal: { bg: "bg-teal-500", bgHover: "hover:bg-teal-600", text: "text-teal-700", bg50: "bg-teal-50", border: "border-teal-300" },
+    rose: { bg: "bg-rose-700", bgHover: "hover:bg-rose-600", text: "text-rose-700", bg50: "bg-rose-50", border: "border-rose-300" },
+    sky: { bg: "bg-sky-600", bgHover: "hover:bg-sky-700", text: "text-sky-700", bg50: "bg-sky-50", border: "border-sky-300" },
+  };
+  const c = accentClasses[accentColor] || accentClasses.teal;
+
+  const apply = (instr) => {
+    onApply(instr);
+    setInstruction("");
+  };
+
+  return (
+    <div className={`mt-2 border-2 ${c.border} ${c.bg50} rounded-lg p-3 space-y-3`}>
+      <div className="flex items-center justify-between">
+        <div className={`text-xs font-bold ${c.text} flex items-center gap-1`}>
+          <Wand2 className="w-3 h-3" /> 修正指示
+        </div>
+        <button onClick={onClose} className="text-xs text-slate-500 hover:text-slate-700">
+          ✕ 閉じる
+        </button>
+      </div>
+
+      {/* よく使う修正プリセット */}
+      <div className="space-y-2">
+        {Object.entries(REVISION_PRESETS).map(([catKey, cat]) => (
+          <div key={catKey}>
+            <div className="text-[10px] uppercase font-bold text-slate-600 mb-1">{cat.label}</div>
+            <div className="flex flex-wrap gap-1">
+              {cat.items.map((item, i) => (
+                <button
+                  key={i}
+                  onClick={() => apply(item.instruction)}
+                  disabled={isLoading}
+                  className="px-2 py-1 text-[11px] bg-white border border-slate-300 hover:border-slate-400 rounded transition disabled:opacity-50"
+                >
+                  {item.label}
+                </button>
+              ))}
+            </div>
+          </div>
+        ))}
+      </div>
+
+      {/* 自由入力 */}
+      <div>
+        <div className="text-[10px] uppercase font-bold text-slate-600 mb-1">自由に入力</div>
+        <div className="flex gap-2">
+          <input
+            type="text"
+            value={instruction}
+            onChange={(e) => setInstruction(e.target.value)}
+            placeholder="例：女性向けに調整して、20代の保育士が安心できる表現で"
+            className="flex-1 px-2 py-1.5 border border-slate-300 rounded bg-white text-xs focus:outline-none focus:border-slate-400 text-slate-900"
+            onKeyDown={(e) => {
+              if (e.key === "Enter" && instruction.trim() && !isLoading) {
+                apply(instruction);
+              }
+            }}
+          />
+          <button
+            onClick={() => instruction.trim() && apply(instruction)}
+            disabled={isLoading || !instruction.trim()}
+            className={`px-3 py-1.5 text-xs font-bold ${c.bg} ${c.bgHover} text-white rounded disabled:opacity-50 transition flex items-center gap-1 whitespace-nowrap`}
+          >
+            {isLoading ? <Loader2 className="w-3 h-3 animate-spin" /> : <Wand2 className="w-3 h-3" />}
+            反映
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+const FieldedOutput = ({ output, loading, onRevise, isRevising, onReviseField, revisingField }) => {
   const [revisionOpen, setRevisionOpen] = useState(false);
+  const [fieldRevisionOpen, setFieldRevisionOpen] = useState(null); // フィールド単位の修正パネル
   const fields = parseFieldedOutput(output);
   if (!output && !loading) return null;
   return (
@@ -487,20 +603,20 @@ const FieldedOutput = ({ output, loading, onRevise, isRevising }) => {
       <div className="flex items-center justify-between flex-wrap gap-2">
         <label className="flex items-center gap-2 text-sm font-semibold text-slate-800">
           <Sparkles className="w-4 h-4 text-teal-400" />
-          生成結果（フィールド別コピー可）
+          生成結果（フィールド別コピー・修正可）
         </label>
         <div className="flex gap-2">
           {output && onRevise && (
             <button
               onClick={() => setRevisionOpen(!revisionOpen)}
-              disabled={isRevising}
+              disabled={isRevising || revisingField}
               className={
                 "flex items-center gap-1 px-3 py-1.5 text-xs border transition rounded disabled:opacity-50 " +
                 (revisionOpen ? "bg-teal-500 text-white border-teal-500" : "border-slate-200 hover:border-slate-300")
               }
             >
               <Wand2 className="w-3 h-3" />
-              修正指示
+              全体修正
             </button>
           )}
           {output && <CopyBtn text={output} label="全体コピー" />}
@@ -529,6 +645,8 @@ const FieldedOutput = ({ output, loading, onRevise, isRevising }) => {
         <div className={isRevising ? "opacity-40 pointer-events-none relative" : "relative"}>
           {fields.map((f, i) => {
             const isAppeal = f.label.includes("訴求文") && !f.label.includes("タイトル");
+            const isThisFieldRevising = revisingField === f.label;
+            const isPanelOpen = fieldRevisionOpen === f.label;
             return (
               <div
                 key={i}
@@ -537,7 +655,7 @@ const FieldedOutput = ({ output, loading, onRevise, isRevising }) => {
                 }`}
               >
                 <div
-                  className={`flex items-center justify-between px-4 py-2.5 border-b ${
+                  className={`flex items-center justify-between px-4 py-2.5 border-b flex-wrap gap-2 ${
                     isAppeal
                       ? "bg-amber-50 border-amber-200"
                       : "bg-white border-slate-200"
@@ -552,14 +670,46 @@ const FieldedOutput = ({ output, loading, onRevise, isRevising }) => {
                       </span>
                     )}
                   </div>
-                  <CopyBtn text={f.content} small />
+                  <div className="flex gap-1.5">
+                    {onReviseField && (
+                      <button
+                        onClick={() => setFieldRevisionOpen(isPanelOpen ? null : f.label)}
+                        disabled={isThisFieldRevising || isRevising}
+                        className={
+                          "flex items-center gap-1 px-2 py-1 text-[11px] border transition rounded disabled:opacity-50 " +
+                          (isPanelOpen ? "bg-teal-500 text-white border-teal-500" : "border-slate-200 hover:border-slate-300")
+                        }
+                      >
+                        {isThisFieldRevising ? <Loader2 className="w-3 h-3 animate-spin" /> : <Wand2 className="w-3 h-3" />}
+                        修正
+                      </button>
+                    )}
+                    <CopyBtn text={f.content} small />
+                  </div>
                 </div>
                 <pre
-                  className="whitespace-pre-wrap break-all text-sm leading-[1.85] text-slate-900 px-4 py-3"
+                  className={`whitespace-pre-wrap break-all text-sm leading-[1.85] text-slate-900 px-4 py-3 ${
+                    isThisFieldRevising ? "opacity-30" : ""
+                  }`}
                   style={{ fontFamily: '"Zen Kaku Gothic New", "Hiragino Sans", sans-serif' }}
                 >
                   {f.content}
                 </pre>
+                {/* フィールド別の修正パネル */}
+                {isPanelOpen && onReviseField && (
+                  <div className="px-4 pb-4">
+                    <RevisionPanel
+                      open={true}
+                      onClose={() => setFieldRevisionOpen(null)}
+                      onApply={(instr) => {
+                        onReviseField(f.label, instr);
+                        setFieldRevisionOpen(null);
+                      }}
+                      isLoading={isThisFieldRevising}
+                      accentColor="teal"
+                    />
+                  </div>
+                )}
               </div>
             );
           })}
@@ -838,6 +988,36 @@ ${output}
     }
   };
 
+  const [revisingField, setRevisingField] = useState(null);
+  const reviseField = async (fieldLabel, instruction) => {
+    if (!output || !instruction) return;
+    setRevisingField(fieldLabel);
+    setError("");
+    try {
+      const res = await callClaudeAPI(
+        buildSystemPrompt("new", decoType, colorTheme, closingType),
+        `以下のジョブメドレー原稿のうち、「${fieldLabel}」フィールドのみを修正してください。
+
+【★修正指示（最優先で反映）★】
+${instruction}
+
+【現在の全12フィールド原稿】
+${output}
+
+【出力ルール】
+- 必ず全12フィールド揃った形で出力すること
+- 「${fieldLabel}」以外のフィールドは現状のまま完全に維持する
+- 「${fieldLabel}」だけを修正指示に従って改善する
+- ■{フィールド名}\n{内容}\n の形式を厳守`
+      );
+      setOutput(res);
+    } catch (e) {
+      setError("修正に失敗しました: " + (e.message || ""));
+    } finally {
+      setRevisingField(null);
+    }
+  };
+
   const field = (key, label, placeholder, rows = 1, required = false) => (
     <div>
       <label className="block text-xs font-semibold text-slate-700 mb-1.5">
@@ -934,7 +1114,7 @@ ${output}
         )}
       </button>
 
-      <FieldedOutput output={output} loading={loading} onRevise={revise} isRevising={revising} />
+      <FieldedOutput output={output} loading={loading} onRevise={revise} isRevising={revising} onReviseField={reviseField} revisingField={revisingField} />
     </div>
   );
 };
@@ -1053,6 +1233,36 @@ ${output}
     }
   };
 
+  const [revisingField, setRevisingField] = useState(null);
+  const reviseField = async (fieldLabel, instruction) => {
+    if (!output || !instruction) return;
+    setRevisingField(fieldLabel);
+    setError("");
+    try {
+      const res = await callClaudeAPI(
+        buildSystemPrompt("rewrite", decoType, colorTheme, closingType),
+        `以下のジョブメドレー原稿のうち、「${fieldLabel}」フィールドのみを修正してください。
+
+【★修正指示（最優先で反映）★】
+${instruction}
+
+【現在の全12フィールド原稿】
+${output}
+
+【出力ルール】
+- 必ず全12フィールド揃った形で出力すること
+- 「${fieldLabel}」以外のフィールドは現状のまま完全に維持する
+- 「${fieldLabel}」だけを修正指示に従って改善する
+- ■{フィールド名}\n{内容}\n の形式を厳守`
+      );
+      setOutput(res);
+    } catch (e) {
+      setError("修正に失敗しました: " + (e.message || ""));
+    } finally {
+      setRevisingField(null);
+    }
+  };
+
   return (
     <div>
       <div className="flex items-start gap-2 mb-4 p-3 bg-teal-50 border border-teal-200 rounded-md">
@@ -1154,7 +1364,7 @@ ${output}
         )}
       </button>
 
-      <FieldedOutput output={output} loading={loading} />
+      <FieldedOutput output={output} loading={loading} onRevise={revise} isRevising={revising} onReviseField={reviseField} revisingField={revisingField} />
     </div>
   );
 };
@@ -1985,11 +2195,11 @@ function buildAirworkSectionPrompt(section, inputs, existingOutput, revisionInst
 }
 
 async function callAirworkAPI(prompt, maxTokens = 4000) {
-  const res = await fetch("/api/claude", {
+  const res = await fetch("https://api.anthropic.com/v1/messages", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
-      model: "claude-sonnet-4-20250514",
+      model: "claude-sonnet-4-6",
       max_tokens: maxTokens,
       messages: [{ role: "user", content: prompt }],
     }),
@@ -2980,11 +3190,11 @@ const INDEED_ADDITIONAL_APP_INFO = [
 ];
 
 async function callIndeedAPI(systemPrompt, userContent) {
-  const res = await fetch("/api/claude", {
+  const res = await fetch("https://api.anthropic.com/v1/messages", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
-      model: "claude-sonnet-4-20250514",
+      model: "claude-sonnet-4-6",
       max_tokens: 4000,
       system: systemPrompt,
       messages: [{ role: "user", content: userContent }],
@@ -3741,1344 +3951,6 @@ JSON形式のみで返してください: {"${section}": "..."}`;
   );
 };
 
-/* =========================================================================
-   【画像プロンプト生成】Gemini / Nano Banana 用の画像プロンプトを生成
-   ========================================================================= */
-
-const IMAGE_STYLE_OPTIONS = [
-  {
-    id: "warm_flat",
-    label: "温かみフラット",
-    description: "パステル・丸み・柔らか。保育/福祉系",
-    detail: "pastel colors, flat illustration, rounded shapes, warm and welcoming, soft tones",
-  },
-  {
-    id: "stylish",
-    label: "スタイリッシュ",
-    description: "白背景・シャープ。オフィス/医療",
-    detail: "clean white background, modern, sharp lines, minimalist, professional",
-  },
-  {
-    id: "pop_energetic",
-    label: "ポップ&元気",
-    description: "ビビッド・動き。若手向け",
-    detail: "vibrant colors, dynamic poses, energetic, youth-oriented, playful",
-  },
-  {
-    id: "natural",
-    label: "ナチュラル",
-    description: "アースカラー・手描き風。落ち着き",
-    detail: "earth tones, hand-drawn style, natural wood textures, calm atmosphere",
-  },
-  {
-    id: "professional",
-    label: "信頼感プロフェッショナル",
-    description: "紺・白・ゴールド。管理職",
-    detail: "navy blue, white, gold accents, trustworthy, professional, executive feel",
-  },
-  {
-    id: "photo_realistic",
-    label: "写真風リアル",
-    description: "実写風・高品質。訴求力重視",
-    detail: "photorealistic, high quality, natural lighting, real people, professional photography",
-  },
-  {
-    id: "anime_style",
-    label: "アニメ調",
-    description: "日本的イラスト。親しみ",
-    detail: "Japanese anime style, friendly character design, manga-inspired, vibrant",
-  },
-  {
-    id: "corporate",
-    label: "コーポレート",
-    description: "企業向け・フォーマル",
-    detail: "corporate style, formal, business professional, conservative colors",
-  },
-];
-
-const IMAGE_SCENE_TEMPLATES = {
-  childcare: {
-    label: "保育・児童福祉",
-    scene: "a caregiver smiling warmly with 2-3 children playing with colorful toys, colorful classroom with books and plush toys in the background",
-  },
-  care: {
-    label: "介護・高齢者",
-    scene: "a caring staff member gently assisting an elderly person in a bright facility, warm and supportive atmosphere",
-  },
-  medical: {
-    label: "医療・看護",
-    scene: "professional medical staff in clean scrubs or white coats in a modern clinic, stethoscope visible, reassuring smile",
-  },
-  dental: {
-    label: "歯科",
-    scene: "a dental hygienist with a friendly smile in a clean modern dental clinic, professional equipment visible",
-  },
-  beauty: {
-    label: "美容師",
-    scene: "a stylish hairdresser working in a modern salon, scissors in hand, elegant and calm atmosphere",
-  },
-  beauty_eye: {
-    label: "アイリスト・ネイリスト",
-    scene: "a beauty technician providing precise service in an elegant salon, soft lighting, premium atmosphere",
-  },
-  office: {
-    label: "営業・オフィス",
-    scene: "professional office workers collaborating at a modern desk with laptops, bright office with plants",
-  },
-  food: {
-    label: "飲食・サービス",
-    scene: "smiling restaurant staff in uniform serving customers, warm and welcoming restaurant interior",
-  },
-  construction: {
-    label: "建設・現場",
-    scene: "construction workers in safety helmets and workwear reviewing plans together, construction site background",
-  },
-  delivery: {
-    label: "配送・ドライバー",
-    scene: "a friendly delivery driver with a vehicle, city street background, professional and approachable",
-  },
-  other: {
-    label: "その他（汎用）",
-    scene: "professional team members smiling and collaborating in a bright modern workplace",
-  },
-};
-
-const IMAGE_COMPOSITION_OPTIONS = [
-  { id: "people_focus", label: "人物メイン", desc: "2〜4人の人物を中心に" },
-  { id: "workplace_focus", label: "職場メイン", desc: "職場環境・設備を中心に" },
-  { id: "single_portrait", label: "1人にフォーカス", desc: "1人の印象的なポートレート" },
-  { id: "team_interaction", label: "チーム交流", desc: "スタッフ同士の自然な会話" },
-  { id: "customer_interaction", label: "顧客対応", desc: "お客様/利用者との触れ合い" },
-];
-
-const IMAGE_MOOD_OPTIONS = [
-  { id: "bright_cheerful", label: "明るく元気", desc: "笑顔・活発" },
-  { id: "calm_warm", label: "落ち着き・温かみ", desc: "穏やか・優しい" },
-  { id: "professional_trust", label: "プロ・信頼感", desc: "誠実・真摯" },
-  { id: "friendly_casual", label: "親しみ・カジュアル", desc: "自然・リラックス" },
-  { id: "energetic_dynamic", label: "躍動感", desc: "動きのある瞬間" },
-];
-
-const GEMINI_TOOLS = [
-  {
-    name: "Google AI Studio",
-    description: "Googleが提供する公式ツール。Gemini/Nano Bananaが利用可能",
-    url: "https://aistudio.google.com/",
-    official: true,
-  },
-  {
-    name: "Gemini（Webアプリ）",
-    description: "Gemini Advancedで画像生成機能が利用可能",
-    url: "https://gemini.google.com/",
-    official: true,
-  },
-  {
-    name: "Google Images Studio",
-    description: "画像生成特化のインターフェース",
-    url: "https://labs.google/",
-    official: true,
-  },
-];
-
-/* プラットフォーム別の画像仕様 */
-/* === デザインイメージ選択肢（コピペ・API共通） === */
-/* === セクション修正指示用：よく使うプリセット === */
-const REVISION_PRESETS = {
-  tone: {
-    label: "トーン調整",
-    items: [
-      { label: "もっと親しみやすく", instruction: "もっと親しみやすく、カジュアルなトーンに" },
-      { label: "もっとフォーマルに", instruction: "もっとフォーマルで丁寧な敬語表現に" },
-      { label: "もっとカジュアルに", instruction: "もっとカジュアルで気軽なトーンに" },
-      { label: "もっと熱量高く", instruction: "もっと情熱的で熱量の高いトーンに、応募意欲を引き出す表現で" },
-    ],
-  },
-  content: {
-    label: "内容調整",
-    items: [
-      { label: "もっと簡潔に", instruction: "情報量を減らし、もっと簡潔に。冗長な部分を削減" },
-      { label: "もっと具体的に", instruction: "抽象表現を減らし、具体的な数字やエピソードを盛り込んで" },
-      { label: "もっと詳しく", instruction: "情報量を増やし、より詳細で説得力のある内容に拡張" },
-      { label: "訴求を強く", instruction: "ベネフィットや訴求ポイントを強調し、応募したくなる文章に" },
-    ],
-  },
-  decoration: {
-    label: "装飾調整",
-    items: [
-      { label: "絵文字を増やす", instruction: "適切な絵文字をもっと追加し、視覚的に華やかに" },
-      { label: "絵文字を減らす", instruction: "絵文字を減らし、シンプルで落ち着いた雰囲気に" },
-      { label: "装飾をシンプルに", instruction: "装飾記号を最小限にし、読みやすく整理された見た目に" },
-      { label: "もっと華やかに", instruction: "見出し・装飾記号・絵文字を効果的に増やして華やかに" },
-    ],
-  },
-  target: {
-    label: "ターゲット調整",
-    items: [
-      { label: "若い世代向け", instruction: "20代の若手向けにトーン・内容を調整" },
-      { label: "ベテラン向け", instruction: "経験者・ベテラン向けに、専門性や責任ある業務を強調" },
-      { label: "未経験者向け", instruction: "未経験者でも安心できる、教育体制やサポートを強調" },
-      { label: "ミドル世代向け", instruction: "30〜40代のミドル世代向けに、安定性とキャリア両立を強調" },
-    ],
-  },
-};
-
-/* === 修正指示パネルコンポーネント（共通） === */
-const RevisionPanel = ({ open, onClose, onApply, isLoading, accentColor = "teal" }) => {
-  const [instruction, setInstruction] = useState("");
-  if (!open) return null;
-
-  const accentClasses = {
-    teal: { bg: "bg-teal-500", bgHover: "hover:bg-teal-600", text: "text-teal-700", bg50: "bg-teal-50", border: "border-teal-300" },
-    rose: { bg: "bg-rose-700", bgHover: "hover:bg-rose-600", text: "text-rose-700", bg50: "bg-rose-50", border: "border-rose-300" },
-    sky: { bg: "bg-sky-600", bgHover: "hover:bg-sky-700", text: "text-sky-700", bg50: "bg-sky-50", border: "border-sky-300" },
-  };
-  const c = accentClasses[accentColor] || accentClasses.teal;
-
-  const apply = (instr) => {
-    onApply(instr);
-    setInstruction("");
-  };
-
-  return (
-    <div className={`mt-2 border-2 ${c.border} ${c.bg50} rounded-lg p-3 space-y-3`}>
-      <div className="flex items-center justify-between">
-        <div className={`text-xs font-bold ${c.text} flex items-center gap-1`}>
-          <Wand2 className="w-3 h-3" /> 修正指示
-        </div>
-        <button onClick={onClose} className="text-xs text-slate-500 hover:text-slate-700">
-          ✕ 閉じる
-        </button>
-      </div>
-
-      {/* よく使う修正プリセット */}
-      <div className="space-y-2">
-        {Object.entries(REVISION_PRESETS).map(([catKey, cat]) => (
-          <div key={catKey}>
-            <div className="text-[10px] uppercase font-bold text-slate-600 mb-1">{cat.label}</div>
-            <div className="flex flex-wrap gap-1">
-              {cat.items.map((item, i) => (
-                <button
-                  key={i}
-                  onClick={() => apply(item.instruction)}
-                  disabled={isLoading}
-                  className="px-2 py-1 text-[11px] bg-white border border-slate-300 hover:border-slate-400 rounded transition disabled:opacity-50"
-                >
-                  {item.label}
-                </button>
-              ))}
-            </div>
-          </div>
-        ))}
-      </div>
-
-      {/* 自由入力 */}
-      <div>
-        <div className="text-[10px] uppercase font-bold text-slate-600 mb-1">自由に入力</div>
-        <div className="flex gap-2">
-          <input
-            type="text"
-            value={instruction}
-            onChange={(e) => setInstruction(e.target.value)}
-            placeholder="例：女性向けに調整して、20代の保育士が安心できる表現で"
-            className="flex-1 px-2 py-1.5 border border-slate-300 rounded bg-white text-xs focus:outline-none focus:border-slate-400 text-slate-900"
-            onKeyDown={(e) => {
-              if (e.key === "Enter" && instruction.trim() && !isLoading) {
-                apply(instruction);
-              }
-            }}
-          />
-          <button
-            onClick={() => instruction.trim() && apply(instruction)}
-            disabled={isLoading || !instruction.trim()}
-            className={`px-3 py-1.5 text-xs font-bold ${c.bg} ${c.bgHover} text-white rounded disabled:opacity-50 transition flex items-center gap-1 whitespace-nowrap`}
-          >
-            {isLoading ? <Loader2 className="w-3 h-3 animate-spin" /> : <Wand2 className="w-3 h-3" />}
-            反映
-          </button>
-        </div>
-      </div>
-    </div>
-  );
-};
-
-const IMAGE_DESIGN_TYPES = [
-  {
-    id: "simple_modern",
-    label: "シンプル・モダン",
-    description: "ミニマル・白基調・洗練された雰囲気",
-    promptKeywords: "minimalist design, clean composition, white-based, modern aesthetic, sophisticated, refined, plenty of negative space, contemporary",
-  },
-  {
-    id: "friendly_pop",
-    label: "親しみやすい・ポップ",
-    description: "カラフル・丸み・フレンドリー",
-    promptKeywords: "friendly, approachable, colorful palette, rounded shapes, illustrative style, warm tones, cheerful, inviting",
-  },
-  {
-    id: "professional",
-    label: "プロフェッショナル",
-    description: "オフィス感・信頼感・知的",
-    promptKeywords: "professional photography, corporate aesthetic, trustworthy, intellectual, business setting, polished, formal lighting",
-  },
-  {
-    id: "warm_gentle",
-    label: "温かみ・やさしさ",
-    description: "柔らかい色合い・ナチュラル",
-    promptKeywords: "warm tones, soft pastel colors, gentle atmosphere, natural lighting, cozy, organic, comforting, heartwarming",
-  },
-  {
-    id: "energetic",
-    label: "エネルギッシュ・活気",
-    description: "ダイナミック・ビビッド・勢い",
-    promptKeywords: "energetic, dynamic composition, vivid colors, motion, vibrant, lively, action-oriented, bold contrasts",
-  },
-  {
-    id: "premium",
-    label: "高級感・上質",
-    description: "ダーク基調・洗練・ラグジュアリー",
-    promptKeywords: "premium quality, luxurious, dark sophisticated palette, refined materials, elegant lighting, high-end aesthetic, polished surfaces",
-  },
-];
-
-/* === 画像内テキスト量の4段階 === */
-const TEXT_AMOUNT_OPTIONS = [
-  {
-    id: "none",
-    label: "文字なし",
-    description: "純粋な画像のみ",
-    promptInstruction: "Important: NO text, NO letters, NO words, NO logos in the image. Pure visual only.",
-  },
-  {
-    id: "minimal",
-    label: "少し",
-    description: "短いキャッチコピー1行（10〜15文字程度）",
-    promptInstruction: "Include ONE short text/headline (10-15 characters in Japanese, e.g. '保育士募集' or 'スタッフ募集'). The text should be prominent, well-readable, integrated naturally into the design.",
-  },
-  {
-    id: "medium",
-    label: "中ぐらい",
-    description: "キャッチコピー1行＋サブテキスト1行",
-    promptInstruction: "Include ONE main headline (10-15 chars in Japanese) AND ONE sub-headline (15-25 chars in Japanese). Both should be clearly readable. Example: 'スタッフ募集' + '未経験歓迎・週3日からOK'.",
-  },
-  {
-    id: "rich",
-    label: "多め",
-    description: "タイトル＋説明＋条件3つ",
-    promptInstruction: "Include comprehensive text: ONE main title, ONE description sentence, and THREE bullet points or feature highlights. All in Japanese, clearly readable. Use design hierarchy (large title, smaller details).",
-  },
-];
-
-const PLATFORM_IMAGE_SPECS = {
-  jobmedley: {
-    label: "ジョブメドレー",
-    minWidth: 1200,
-    minHeight: 675,
-    maxFileSize: "10MB",
-    recommendedRatio: "16:9",
-    notes: [
-      "1ファイルあたり最大10MBまで",
-      "横1200px × 縦675px以上を推奨",
-      "推奨アスペクト比は16:9（バナー型）",
-    ],
-    promptInstruction: `【ジョブメドレーの画像仕様】
-- 推奨サイズ：横1200px × 縦675px以上（16:9アスペクト比）
-- ファイルサイズ：最大10MB
-- 上記の要件を満たす高解像度・高品質な画像を生成すること
-- アスペクト比16:9を厳守し、被写体や重要要素が画像端で切れないよう構図に配慮`,
-  },
-  airwork: {
-    label: "エアワーク",
-    minWidth: 1200,
-    minHeight: 900,
-    maxWidth: 10000,
-    maxFileSize: "10MB",
-    recommendedRatio: "4:3",
-    notes: [
-      "適正サイズ：横1200px × 縦900px以上",
-      "最大サイズ：一辺10,000pxまで",
-      "ファイルサイズ：最大10MB",
-      "推奨アスペクト比は4:3",
-    ],
-    promptInstruction: `【エアワークの画像仕様】
-- 適正サイズ：横1200px × 縦900px以上（4:3アスペクト比推奨）
-- 最大サイズ：一辺10,000pxまで
-- ファイルサイズ：最大10MB
-- 上記要件を満たす高解像度・高品質な画像を生成すること
-- アスペクト比4:3を厳守し、被写体や重要要素が画像端で切れないよう構図に配慮`,
-  },
-  indeed: {
-    label: "Indeed",
-    minWidth: 1200,
-    minHeight: 900,
-    maxWidth: 10000,
-    maxFileSize: "10MB",
-    recommendedRatio: "4:3",
-    notes: [
-      "適正サイズ：横1200px × 縦900px以上",
-      "最大サイズ：一辺10,000pxまで",
-      "ファイルサイズ：最大10MB",
-      "推奨アスペクト比は4:3",
-    ],
-    promptInstruction: `【Indeedの画像仕様】
-- 適正サイズ：横1200px × 縦900px以上（4:3アスペクト比推奨）
-- 最大サイズ：一辺10,000pxまで
-- ファイルサイズ：最大10MB
-- 上記要件を満たす高解像度・高品質な画像を生成すること
-- アスペクト比4:3を厳守し、被写体や重要要素が画像端で切れないよう構図に配慮`,
-  },
-};
-
-const ImagePromptTab = ({ platform = "jobmedley" }) => {
-  const platformSpec = PLATFORM_IMAGE_SPECS[platform] || PLATFORM_IMAGE_SPECS.jobmedley;
-  const defaultRatio = platform === "jobmedley" ? "16:9" : "4:3";
-
-  // モード切替
-  const [mode, setMode] = useState("copy"); // copy or api
-  const [aiTarget, setAiTarget] = useState("chatgpt"); // chatgpt or gemini
-  const [imageModel, setImageModel] = useState("gpt-image-1");
-  const [imageQuality, setImageQuality] = useState("medium");
-
-  // 入力
-  const [sourceMode, setSourceMode] = useState("manuscript");
-  const [manuscript, setManuscript] = useState("");
-  const [industryType, setIndustryType] = useState("childcare");
-  const [designTypeId, setDesignTypeId] = useState("simple_modern");
-  const [textAmountId, setTextAmountId] = useState("minimal");
-  const [styleId, setStyleId] = useState("warm_flat");
-  const [compositionId, setCompositionId] = useState("people_focus");
-  const [moodId, setMoodId] = useState("bright_cheerful");
-  const [additionalNotes, setAdditionalNotes] = useState("");
-  const [aspectRatio, setAspectRatio] = useState(defaultRatio);
-  const [language, setLanguage] = useState("en");
-
-  // 出力
-  const [output, setOutput] = useState(""); // コピペモード結果（テキスト）
-  const [generatedImages, setGeneratedImages] = useState([]); // APIモード結果
-  const [loading, setLoading] = useState(false);
-  const [imageLoading, setImageLoading] = useState(false);
-  const [error, setError] = useState("");
-  const [copied, setCopied] = useState(false);
-
-  // 修正指示用
-  const [revisionInstruction, setRevisionInstruction] = useState("");
-  const [revisionTargetIdx, setRevisionTargetIdx] = useState(null); // 画像の修正対象インデックス
-  const [revisionTargetPattern, setRevisionTargetPattern] = useState(null); // コピペの修正対象パターン番号
-
-  // OpenAI画像のサイズ設定
-  const getOpenAISize = () => {
-    if (imageModel === "dall-e-3") {
-      if (aspectRatio === "16:9") return "1792x1024";
-      if (aspectRatio === "9:16") return "1024x1792";
-      return "1024x1024";
-    } else {
-      if (aspectRatio === "16:9") return "1536x1024";
-      if (aspectRatio === "9:16") return "1024x1536";
-      return "1024x1024";
-    }
-  };
-
-  // 価格目安計算
-  const getEstimatedCost = () => {
-    if (imageModel === "dall-e-3") {
-      return imageQuality === "hd" ? "$0.08（約12円）" : "$0.04（約6円）";
-    }
-    if (imageQuality === "low") return "$0.011（約1.7円）";
-    if (imageQuality === "high") return "$0.167（約25円）";
-    return "$0.042（約6円）";
-  };
-
-  const getTotalCost = (count) => {
-    const oneCost = imageModel === "dall-e-3"
-      ? (imageQuality === "hd" ? 0.08 : 0.04)
-      : (imageQuality === "low" ? 0.011 : imageQuality === "high" ? 0.167 : 0.042);
-    return `$${(oneCost * count).toFixed(3)}（約${Math.round(oneCost * count * 150)}円）`;
-  };
-
-  // ===== コピペモード：プロンプト生成 =====
-  const buildCopyPrompt = (revisionText = "", baseFromPattern = null) => {
-    const designType = IMAGE_DESIGN_TYPES.find((d) => d.id === designTypeId);
-    const textAmount = TEXT_AMOUNT_OPTIONS.find((t) => t.id === textAmountId);
-    const style = IMAGE_STYLE_OPTIONS.find((s) => s.id === styleId);
-    const scene = IMAGE_SCENE_TEMPLATES[industryType];
-    const composition = IMAGE_COMPOSITION_OPTIONS.find((c) => c.id === compositionId);
-    const mood = IMAGE_MOOD_OPTIONS.find((m) => m.id === moodId);
-
-    const targetGuide = aiTarget === "chatgpt"
-      ? `【ChatGPT (DALL-E 3 / GPT-Image-1) 向け最適化】
-- 自然な英語の文章で記述（リスト形式より物語的な記述が効果的）
-- "A photo of..." や "An illustration of..." で始める
-- スタイル指定は文章末尾に追加`
-      : `【Gemini (Nano Banana) 向け最適化】
-- 構造化されたプロンプト（要素を箇条書きでも可）
-- 細部の指定が活きる`;
-
-    const revisionGuide = revisionText
-      ? `\n【★修正指示（最優先で反映）★】\n${revisionText}\n${baseFromPattern ? `(パターン${baseFromPattern}をベースに修正)` : "(同条件で再生成)"}`
-      : "";
-
-    const systemPrompt = `あなたは${aiTarget === "chatgpt" ? "ChatGPT (DALL-E 3 / GPT-Image-1)" : "Gemini (Nano Banana)"}の画像生成プロンプト作成の専門家です。
-ユーザー提供の求人情報と選択された条件から、高品質な画像を生成するための画像プロンプトを3パターン作成してください。
-
-【掲載先プラットフォーム：${platformSpec.label}】
-${platformSpec.promptInstruction}
-
-${targetGuide}
-${revisionGuide}
-
-【デザインイメージ：${designType?.label || ""}】
-${designType?.description || ""}
-キーワード：${designType?.promptKeywords || ""}
-
-【画像内テキスト量：${textAmount?.label || ""}】
-${textAmount?.description || ""}
-プロンプト指示：${textAmount?.promptInstruction || ""}
-
-【プロンプト作成のルール】
-- ${language === "en" ? "英語で記述" : "日本語で記述"}
-- 各プロンプトは200〜400文字程度の詳細な描写
-- 必ず含める要素：被写体、シーン、ライティング、スタイル、構図、色調、画像仕様（${platformSpec.minWidth}×${platformSpec.minHeight}px以上、アスペクト比${aspectRatio}）
-${aiTarget === "gemini" ? "- ネガティブプロンプト（避けるべき要素）" : ""}
-
-【3パターンのバリエーション】
-パターン1：オーソドックス・万人向け
-パターン2：少しユニークな構図・差別化
-パターン3：上記2つと違う方向性・実験的
-
-【出力形式】
-以下の形式で3パターン出力（マークダウン形式）：
-
-## パターン1：[短いタイトル]
-
-**メインプロンプト：**
-[詳細な画像生成プロンプト。${language === "en" ? "英語" : "日本語"}]
-${aiTarget === "gemini" ? `
-**ネガティブプロンプト：**
-[避けるべき要素]` : ""}
-
-**使い方のヒント：**
-[このプロンプトでどんな画像が出るか、調整のコツ]
-
----
-
-(以降パターン3まで)`;
-
-    const userContent = sourceMode === "manuscript"
-      ? `求人原稿：
-${manuscript}
-
-業種カテゴリ：${scene?.label || industryType}
-推奨シーン：${scene?.scenes?.join("、") || "なし"}
-画像スタイル：${style?.label || ""}
-構図：${composition?.label || ""}
-雰囲気：${mood?.label || ""}
-追加メモ：${additionalNotes || "なし"}`
-      : `業種カテゴリ：${scene?.label || industryType}
-推奨シーン：${scene?.scenes?.join("、") || "なし"}
-画像スタイル：${style?.label || ""}
-構図：${composition?.label || ""}
-雰囲気：${mood?.label || ""}
-追加メモ：${additionalNotes || "なし"}`;
-
-    return { systemPrompt, userContent };
-  };
-
-  const runCopyMode = async (revisionText = "", baseFromPattern = null) => {
-    if (sourceMode === "manuscript" && !manuscript.trim() && !revisionText) {
-      setError("求人原稿を入力してください");
-      return;
-    }
-    setError("");
-    setOutput("");
-    setLoading(true);
-    try {
-      const { systemPrompt, userContent } = buildCopyPrompt(revisionText, baseFromPattern);
-      const res = await fetch("/api/claude", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          model: "claude-sonnet-4-20250514",
-          max_tokens: 4000,
-          system: systemPrompt,
-          messages: [{ role: "user", content: userContent }],
-        }),
-      });
-      if (!res.ok) throw new Error("APIエラー: " + res.status);
-      const data = await res.json();
-      const text = data.content
-        .filter((i) => i.type === "text")
-        .map((i) => i.text)
-        .join("\n");
-      setOutput(text);
-      setRevisionInstruction("");
-      setRevisionTargetPattern(null);
-    } catch (e) {
-      setError("生成エラー: " + e.message);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  // ===== APIモード：3枚同時生成 =====
-  const buildSinglePrompt = async (variationIndex, revisionText = "", basePrompt = null) => {
-    const designType = IMAGE_DESIGN_TYPES.find((d) => d.id === designTypeId);
-    const textAmount = TEXT_AMOUNT_OPTIONS.find((t) => t.id === textAmountId);
-    const style = IMAGE_STYLE_OPTIONS.find((s) => s.id === styleId);
-    const scene = IMAGE_SCENE_TEMPLATES[industryType];
-    const composition = IMAGE_COMPOSITION_OPTIONS.find((c) => c.id === compositionId);
-    const mood = IMAGE_MOOD_OPTIONS.find((m) => m.id === moodId);
-
-    const variationGuide = [
-      "Standard, balanced approach. Most universally appealing.",
-      "Slightly unique angle or composition. More differentiated.",
-      "Different direction from the above two. More experimental.",
-    ];
-
-    const baseGuide = basePrompt ? `\n[BASE PROMPT TO MODIFY]: ${basePrompt}\n` : "";
-    const revisionGuide = revisionText ? `\n[USER REVISION REQUEST - HIGHEST PRIORITY]: ${revisionText}\n` : "";
-
-    const systemPrompt = `You are an expert at writing image generation prompts for DALL-E 3 / GPT-Image-1.
-Generate ONE concise English prompt (under 1000 characters) optimized for ${imageModel}.
-Start with "A photo of..." or "An illustration of...".
-
-[Variation Type]: ${variationGuide[variationIndex] || variationGuide[0]}
-${baseGuide}${revisionGuide}
-
-[Design Type]: ${designType?.label} - ${designType?.promptKeywords}
-[Text Amount]: ${textAmount?.promptInstruction}
-[Aspect Ratio]: ${aspectRatio}
-[Quality]: professional, high resolution
-
-Output ONLY the prompt text, no explanations or markdown.`;
-
-    const userContent = sourceMode === "manuscript"
-      ? `Recruitment text: ${manuscript}\nIndustry: ${scene?.label}\nScene: ${scene?.scenes?.join(", ")}\nStyle: ${style?.label}\nComposition: ${composition?.label}\nMood: ${mood?.label}\nNotes: ${additionalNotes || "none"}`
-      : `Industry: ${scene?.label}\nScene: ${scene?.scenes?.join(", ")}\nStyle: ${style?.label}\nComposition: ${composition?.label}\nMood: ${mood?.label}\nNotes: ${additionalNotes || "none"}`;
-
-    const promptRes = await fetch("/api/claude", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        model: "claude-sonnet-4-20250514",
-        max_tokens: 1500,
-        system: systemPrompt,
-        messages: [{ role: "user", content: userContent }],
-      }),
-    });
-    if (!promptRes.ok) throw new Error("プロンプト生成エラー: " + promptRes.status);
-    const promptData = await promptRes.json();
-    return promptData.content
-      .filter((i) => i.type === "text")
-      .map((i) => i.text)
-      .join(" ")
-      .trim()
-      .replace(/^["'`]+|["'`]+$/g, "")
-      .substring(0, 1000);
-  };
-
-  const generateOneImage = async (prompt) => {
-    const imageReqBody = imageModel === "dall-e-3"
-      ? {
-          model: "dall-e-3",
-          prompt: prompt,
-          size: getOpenAISize(),
-          quality: imageQuality,
-          n: 1,
-          response_format: "b64_json",
-        }
-      : {
-          model: "gpt-image-1",
-          prompt: prompt,
-          size: getOpenAISize(),
-          quality: imageQuality,
-          n: 1,
-        };
-
-    const imageRes = await fetch("/api/openai-image", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(imageReqBody),
-    });
-    if (!imageRes.ok) {
-      const errData = await imageRes.json();
-      throw new Error(errData.error?.message || "画像生成エラー: " + imageRes.status);
-    }
-    const imageData = await imageRes.json();
-    return imageData.data.map((img) => ({
-      url: img.b64_json ? `data:image/png;base64,${img.b64_json}` : img.url,
-      prompt: prompt,
-    }));
-  };
-
-  const generate3Images = async () => {
-    if (sourceMode === "manuscript" && !manuscript.trim()) {
-      setError("求人原稿を入力してください");
-      return;
-    }
-    setError("");
-    setGeneratedImages([]);
-    setImageLoading(true);
-    try {
-      // 3パターンのプロンプトを並列生成
-      const prompts = await Promise.all([0, 1, 2].map((i) => buildSinglePrompt(i)));
-      // 3枚の画像を並列生成
-      const results = await Promise.all(prompts.map((p) => generateOneImage(p)));
-      const flat = results.flat();
-      setGeneratedImages(flat);
-    } catch (e) {
-      setError("画像生成エラー: " + e.message);
-    } finally {
-      setImageLoading(false);
-    }
-  };
-
-  const regenerateAll = async () => {
-    setRevisionInstruction("");
-    setRevisionTargetIdx(null);
-    await generate3Images();
-  };
-
-  const reviseAllWithInstruction = async () => {
-    if (!revisionInstruction.trim()) {
-      setError("修正指示を入力してください");
-      return;
-    }
-    if (sourceMode === "manuscript" && !manuscript.trim()) {
-      setError("求人原稿を入力してください");
-      return;
-    }
-    setError("");
-    setImageLoading(true);
-    try {
-      // 修正指示を反映した3つのプロンプトを生成
-      const prompts = await Promise.all(
-        [0, 1, 2].map((i) => buildSinglePrompt(i, revisionInstruction))
-      );
-      const results = await Promise.all(prompts.map((p) => generateOneImage(p)));
-      setGeneratedImages(results.flat());
-      setRevisionInstruction("");
-    } catch (e) {
-      setError("修正エラー: " + e.message);
-    } finally {
-      setImageLoading(false);
-    }
-  };
-
-  const reviseFromImage = async (idx) => {
-    if (!revisionInstruction.trim()) {
-      setError("修正指示を入力してください");
-      return;
-    }
-    setError("");
-    setImageLoading(true);
-    try {
-      const baseImage = generatedImages[idx];
-      // ベースプロンプト + 修正指示で1〜3枚生成（バリエーション）
-      const prompts = await Promise.all(
-        [0, 1, 2].map((i) =>
-          buildSinglePrompt(i, revisionInstruction, baseImage.prompt)
-        )
-      );
-      const results = await Promise.all(prompts.map((p) => generateOneImage(p)));
-      setGeneratedImages(results.flat());
-      setRevisionInstruction("");
-      setRevisionTargetIdx(null);
-    } catch (e) {
-      setError("バリエーション生成エラー: " + e.message);
-    } finally {
-      setImageLoading(false);
-    }
-  };
-
-  const copy = async () => {
-    const ok = await copyToClipboard(output);
-    if (ok) {
-      setCopied(true);
-      setTimeout(() => setCopied(false), 2000);
-    }
-  };
-
-  const downloadImage = async (url, index) => {
-    try {
-      let blob;
-      if (url.startsWith("data:")) {
-        const base64 = url.split(",")[1];
-        const byteString = atob(base64);
-        const ab = new ArrayBuffer(byteString.length);
-        const ia = new Uint8Array(ab);
-        for (let i = 0; i < byteString.length; i++) ia[i] = byteString.charCodeAt(i);
-        blob = new Blob([ab], { type: "image/png" });
-      } else {
-        const res = await fetch(url);
-        blob = await res.blob();
-      }
-      const dlUrl = URL.createObjectURL(blob);
-      const a = document.createElement("a");
-      a.href = dlUrl;
-      a.download = `manuscript-studio-image-${platform}-${Date.now()}-${index}.png`;
-      document.body.appendChild(a);
-      a.click();
-      document.body.removeChild(a);
-      URL.revokeObjectURL(dlUrl);
-    } catch (e) {
-      alert("ダウンロードに失敗しました: " + e.message);
-    }
-  };
-
-  // 静的Tailwindクラス
-  const colorClass = {
-    jobmedley: { bg: "bg-teal-500", bgHover: "hover:bg-teal-600", text: "text-teal-700", border: "border-teal-500", bg50: "bg-teal-50", border200: "border-teal-200" },
-    airwork: { bg: "bg-rose-700", bgHover: "hover:bg-rose-600", text: "text-rose-700", border: "border-rose-700", bg50: "bg-rose-50", border200: "border-rose-200" },
-    indeed: { bg: "bg-sky-600", bgHover: "hover:bg-sky-700", text: "text-sky-700", border: "border-sky-600", bg50: "bg-sky-50", border200: "border-sky-200" },
-  };
-  const c = colorClass[platform] || colorClass.jobmedley;
-
-  const currentDesignType = IMAGE_DESIGN_TYPES.find((d) => d.id === designTypeId);
-  const currentTextAmount = TEXT_AMOUNT_OPTIONS.find((t) => t.id === textAmountId);
-  const currentStyle = IMAGE_STYLE_OPTIONS.find((s) => s.id === styleId);
-  const currentScene = IMAGE_SCENE_TEMPLATES[industryType];
-
-  return (
-    <div>
-      {/* === モード切替（コピペ vs API） === */}
-      <div className="mb-5">
-        <div className={`text-xs uppercase mb-2 tracking-widest font-bold ${c.text}`}>動作モード</div>
-        <div className="grid grid-cols-2 gap-2">
-          <button
-            onClick={() => setMode("copy")}
-            className={`p-3 border rounded-lg text-left transition ${
-              mode === "copy" ? `${c.border} ${c.bg50} ring-2 ring-offset-1` : "border-slate-200 bg-white hover:border-slate-300"
-            }`}
-          >
-            <div className="flex items-center gap-2 mb-1">
-              <Clipboard className={`w-4 h-4 ${mode === "copy" ? c.text : "text-slate-500"}`} />
-              <span className="text-sm font-bold">コピペモード</span>
-              <span className="text-[10px] bg-emerald-100 text-emerald-800 px-1.5 py-0.5 rounded">無料</span>
-            </div>
-            <div className="text-[11px] text-slate-500">プロンプト3パターン生成→コピーして外部AIで使用</div>
-          </button>
-          <button
-            onClick={() => setMode("api")}
-            className={`p-3 border rounded-lg text-left transition ${
-              mode === "api" ? `${c.border} ${c.bg50} ring-2 ring-offset-1` : "border-slate-200 bg-white hover:border-slate-300"
-            }`}
-          >
-            <div className="flex items-center gap-2 mb-1">
-              <Sparkles className={`w-4 h-4 ${mode === "api" ? c.text : "text-slate-500"}`} />
-              <span className="text-sm font-bold">APIモード</span>
-              <span className="text-[10px] bg-amber-100 text-amber-800 px-1.5 py-0.5 rounded">有料</span>
-            </div>
-            <div className="text-[11px] text-slate-500">3枚同時生成・修正指示・バリエーション可</div>
-          </button>
-        </div>
-      </div>
-
-      {/* === コピペモード固有：AIターゲット === */}
-      {mode === "copy" && (
-        <div className="mb-5">
-          <div className="text-xs uppercase mb-2 tracking-widest font-bold text-slate-700">生成先AI</div>
-          <div className="grid grid-cols-2 gap-2">
-            <button
-              onClick={() => setAiTarget("chatgpt")}
-              className={`p-2.5 border rounded-md text-left transition ${
-                aiTarget === "chatgpt" ? `${c.border} ${c.bg50}` : "border-slate-200 bg-white hover:border-slate-300"
-              }`}
-            >
-              <div className="text-sm font-bold">ChatGPT (DALL-E 3 / GPT-Image-1)</div>
-              <div className="text-[11px] text-slate-500">写実的・指示理解力◎・推奨</div>
-            </button>
-            <button
-              onClick={() => setAiTarget("gemini")}
-              className={`p-2.5 border rounded-md text-left transition ${
-                aiTarget === "gemini" ? `${c.border} ${c.bg50}` : "border-slate-200 bg-white hover:border-slate-300"
-              }`}
-            >
-              <div className="text-sm font-bold">Gemini (Nano Banana)</div>
-              <div className="text-[11px] text-slate-500">構造化プロンプトに強い</div>
-            </button>
-          </div>
-        </div>
-      )}
-
-      {/* === APIモード固有：モデル・品質 === */}
-      {mode === "api" && (
-        <div className="mb-5 p-3 bg-amber-50 border border-amber-200 rounded-md space-y-3">
-          <div className="flex items-start gap-2">
-            <AlertTriangle className="w-4 h-4 text-amber-600 mt-0.5 flex-shrink-0" />
-            <div className="text-xs text-slate-700 leading-relaxed">
-              <b>APIモード（有料）：</b>
-              3枚生成（合計約{getTotalCost(3)}）。修正指示・バリエーション生成も同コスト。
-            </div>
-          </div>
-
-          <div>
-            <div className="text-xs uppercase mb-2 tracking-widest font-bold text-slate-700">画像生成モデル</div>
-            <div className="grid grid-cols-2 gap-2">
-              <button
-                onClick={() => { setImageModel("gpt-image-1"); setImageQuality("medium"); }}
-                className={`p-2.5 border rounded-md text-left transition ${
-                  imageModel === "gpt-image-1" ? `${c.border} bg-white` : "border-slate-200 bg-white hover:border-slate-300"
-                }`}
-              >
-                <div className="text-sm font-bold">GPT-Image-1</div>
-                <div className="text-[11px] text-slate-500">最新・GPT-4o基盤・写実的</div>
-              </button>
-              <button
-                onClick={() => { setImageModel("dall-e-3"); setImageQuality("standard"); }}
-                className={`p-2.5 border rounded-md text-left transition ${
-                  imageModel === "dall-e-3" ? `${c.border} bg-white` : "border-slate-200 bg-white hover:border-slate-300"
-                }`}
-              >
-                <div className="text-sm font-bold">DALL-E 3</div>
-                <div className="text-[11px] text-slate-500">安定・人気・コスパ◎</div>
-              </button>
-            </div>
-          </div>
-
-          <div>
-            <div className="text-xs uppercase mb-2 tracking-widest font-bold text-slate-700">画質</div>
-            <div className="flex gap-2 flex-wrap">
-              {imageModel === "dall-e-3"
-                ? ["standard", "hd"].map((q) => (
-                    <button
-                      key={q}
-                      onClick={() => setImageQuality(q)}
-                      className={`px-3 py-1.5 text-xs border rounded transition ${
-                        imageQuality === q ? `${c.bg} text-white border-transparent` : "border-slate-200 bg-white text-slate-700 hover:border-slate-300"
-                      }`}
-                    >
-                      {q === "standard" ? "標準（$0.04）" : "HD（$0.08）"}
-                    </button>
-                  ))
-                : ["low", "medium", "high"].map((q) => (
-                    <button
-                      key={q}
-                      onClick={() => setImageQuality(q)}
-                      className={`px-3 py-1.5 text-xs border rounded transition ${
-                        imageQuality === q ? `${c.bg} text-white border-transparent` : "border-slate-200 bg-white text-slate-700 hover:border-slate-300"
-                      }`}
-                    >
-                      {q === "low" ? "低（$0.011）" : q === "medium" ? "中（$0.042）" : "高（$0.167）"}
-                    </button>
-                  ))}
-            </div>
-            <div className="text-[10px] text-slate-500 mt-1">3枚合計：{getTotalCost(3)}</div>
-          </div>
-        </div>
-      )}
-
-      {/* === デザインイメージ選択（共通） === */}
-      <div className="mb-5">
-        <div className="text-xs uppercase mb-2 tracking-widest font-bold text-slate-700">
-          🎨 デザインイメージ <span className="text-slate-400 normal-case font-normal">（画像全体の雰囲気を決める）</span>
-        </div>
-        <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
-          {IMAGE_DESIGN_TYPES.map((d) => (
-            <button
-              key={d.id}
-              onClick={() => setDesignTypeId(d.id)}
-              className={`p-2.5 border rounded-md text-left transition ${
-                designTypeId === d.id ? `${c.border} ${c.bg50} ring-1 ring-offset-1` : "border-slate-200 bg-white hover:border-slate-300"
-              }`}
-            >
-              <div className="text-xs font-bold mb-0.5">{d.label}</div>
-              <div className="text-[10px] text-slate-500 leading-tight">{d.description}</div>
-            </button>
-          ))}
-        </div>
-      </div>
-
-      {/* === 文字量選択（共通） === */}
-      <div className="mb-5">
-        <div className="text-xs uppercase mb-2 tracking-widest font-bold text-slate-700">
-          📝 画像内の文字量
-        </div>
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
-          {TEXT_AMOUNT_OPTIONS.map((t) => (
-            <button
-              key={t.id}
-              onClick={() => setTextAmountId(t.id)}
-              className={`p-2.5 border rounded-md text-left transition ${
-                textAmountId === t.id ? `${c.border} ${c.bg50} ring-1 ring-offset-1` : "border-slate-200 bg-white hover:border-slate-300"
-              }`}
-            >
-              <div className="text-xs font-bold mb-0.5">{t.label}</div>
-              <div className="text-[10px] text-slate-500 leading-tight">{t.description}</div>
-            </button>
-          ))}
-        </div>
-      </div>
-
-      {/* === 画像仕様の表示 === */}
-      <div className={`flex items-start gap-2 mb-4 p-3 ${c.bg50} border ${c.border200} rounded-md`}>
-        <Info className={`w-4 h-4 ${c.text} mt-0.5 flex-shrink-0`} />
-        <div className="text-xs text-slate-700 leading-relaxed">
-          <b className={c.text}>{platformSpec.label}の画像仕様：</b>{" "}
-          {(platformSpec.notes || []).join("、")}
-        </div>
-      </div>
-
-      {/* === 入力ソース選択 === */}
-      <div className="mb-5">
-        <div className="text-xs uppercase mb-2 tracking-widest font-bold text-slate-700">入力ソース</div>
-        <div className="flex gap-2 bg-slate-100 border border-slate-200 rounded-md p-1 w-fit">
-          <button
-            onClick={() => setSourceMode("manuscript")}
-            className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded transition ${
-              sourceMode === "manuscript" ? `${c.bg} text-white` : "text-slate-600 hover:text-slate-800"
-            }`}
-          >
-            <FileText className="w-3 h-3" /> 原稿から生成
-          </button>
-          <button
-            onClick={() => setSourceMode("manual")}
-            className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded transition ${
-              sourceMode === "manual" ? `${c.bg} text-white` : "text-slate-600 hover:text-slate-800"
-            }`}
-          >
-            <Sparkles className="w-3 h-3" /> 条件のみで生成
-          </button>
-        </div>
-      </div>
-
-      {/* === 求人原稿入力 === */}
-      {sourceMode === "manuscript" && (
-        <div className="mb-5">
-          <label className="block text-xs uppercase mb-2 tracking-widest font-bold text-slate-700">
-            求人原稿
-          </label>
-          <textarea
-            value={manuscript}
-            onChange={(e) => setManuscript(e.target.value)}
-            rows={5}
-            placeholder="例：保育士募集。0〜5歳児の保育、行事の企画運営。アットホームな雰囲気の保育園です。"
-            className="w-full p-3 border border-slate-200 rounded bg-white text-sm resize-y focus:outline-none focus:border-slate-400 text-slate-900"
-            style={{ lineHeight: 1.7 }}
-          />
-        </div>
-      )}
-
-      {/* === 業種・スタイル・構図・雰囲気 === */}
-      <div className="grid md:grid-cols-2 gap-3 mb-3">
-        <div>
-          <label className="block text-xs uppercase mb-1.5 tracking-widest font-bold text-slate-700">業種</label>
-          <select
-            value={industryType}
-            onChange={(e) => setIndustryType(e.target.value)}
-            className="w-full px-3 py-2 border border-slate-200 rounded bg-white text-sm focus:outline-none focus:border-slate-400 text-slate-900"
-          >
-            {Object.entries(IMAGE_SCENE_TEMPLATES).map(([k, v]) => (
-              <option key={k} value={k}>{v.label}</option>
-            ))}
-          </select>
-        </div>
-
-        <div>
-          <label className="block text-xs uppercase mb-1.5 tracking-widest font-bold text-slate-700">アスペクト比</label>
-          <select
-            value={aspectRatio}
-            onChange={(e) => setAspectRatio(e.target.value)}
-            className="w-full px-3 py-2 border border-slate-200 rounded bg-white text-sm focus:outline-none focus:border-slate-400 text-slate-900"
-          >
-            <option value="16:9">16:9（バナー）</option>
-            <option value="4:3">4:3（汎用）</option>
-            <option value="1:1">1:1（正方形）</option>
-            <option value="9:16">9:16（縦長）</option>
-          </select>
-        </div>
-      </div>
-
-      <details className="mb-5 border border-slate-200 rounded-md">
-        <summary className="px-3 py-2 cursor-pointer text-xs font-semibold text-slate-700 hover:bg-slate-50">
-          詳細設定（スタイル・構図・雰囲気）
-        </summary>
-        <div className="p-3 grid md:grid-cols-3 gap-3 border-t border-slate-200">
-          <div>
-            <label className="block text-[10px] uppercase mb-1 tracking-widest font-bold text-slate-700">画像スタイル</label>
-            <select
-              value={styleId}
-              onChange={(e) => setStyleId(e.target.value)}
-              className="w-full px-2 py-1.5 border border-slate-200 rounded bg-white text-xs focus:outline-none focus:border-slate-400 text-slate-900"
-            >
-              {IMAGE_STYLE_OPTIONS.map((s) => (
-                <option key={s.id} value={s.id}>{s.label}</option>
-              ))}
-            </select>
-          </div>
-          <div>
-            <label className="block text-[10px] uppercase mb-1 tracking-widest font-bold text-slate-700">構図</label>
-            <select
-              value={compositionId}
-              onChange={(e) => setCompositionId(e.target.value)}
-              className="w-full px-2 py-1.5 border border-slate-200 rounded bg-white text-xs focus:outline-none focus:border-slate-400 text-slate-900"
-            >
-              {IMAGE_COMPOSITION_OPTIONS.map((co) => (
-                <option key={co.id} value={co.id}>{co.label}</option>
-              ))}
-            </select>
-          </div>
-          <div>
-            <label className="block text-[10px] uppercase mb-1 tracking-widest font-bold text-slate-700">雰囲気</label>
-            <select
-              value={moodId}
-              onChange={(e) => setMoodId(e.target.value)}
-              className="w-full px-2 py-1.5 border border-slate-200 rounded bg-white text-xs focus:outline-none focus:border-slate-400 text-slate-900"
-            >
-              {IMAGE_MOOD_OPTIONS.map((mo) => (
-                <option key={mo.id} value={mo.id}>{mo.label}</option>
-              ))}
-            </select>
-          </div>
-          {mode === "copy" && (
-            <div className="md:col-span-3">
-              <label className="block text-[10px] uppercase mb-1 tracking-widest font-bold text-slate-700">プロンプト言語</label>
-              <select
-                value={language}
-                onChange={(e) => setLanguage(e.target.value)}
-                className="w-full px-2 py-1.5 border border-slate-200 rounded bg-white text-xs focus:outline-none focus:border-slate-400 text-slate-900"
-              >
-                <option value="en">英語（推奨・高品質）</option>
-                <option value="ja">日本語</option>
-              </select>
-            </div>
-          )}
-        </div>
-      </details>
-
-      {/* === 追加メモ === */}
-      <div className="mb-5">
-        <label className="block text-xs uppercase mb-1.5 tracking-widest font-bold text-slate-700">追加メモ（任意）</label>
-        <input
-          type="text"
-          value={additionalNotes}
-          onChange={(e) => setAdditionalNotes(e.target.value)}
-          placeholder="例：会社のロゴカラーは緑、女性スタッフを中心に"
-          className="w-full px-3 py-2 border border-slate-200 rounded bg-white text-sm focus:outline-none focus:border-slate-400 text-slate-900"
-        />
-      </div>
-
-      {/* === エラー表示 === */}
-      {error && (
-        <div className="p-3 mb-4 text-sm border border-red-300 bg-red-50 text-red-700 rounded">
-          <AlertCircle className="w-4 h-4 inline mr-1" /> {error}
-        </div>
-      )}
-
-      {/* === 生成ボタン === */}
-      {mode === "copy" ? (
-        <button
-          onClick={() => runCopyMode()}
-          disabled={loading}
-          className={`w-full py-3.5 text-base font-bold flex items-center justify-center gap-3 ${c.bg} ${c.bgHover} text-white rounded disabled:opacity-50 transition shadow-lg`}
-        >
-          {loading ? (
-            <><Loader2 className="w-5 h-5 animate-spin" /> プロンプト生成中...</>
-          ) : (
-            <><Sparkles className="w-5 h-5" /> {aiTarget === "chatgpt" ? "ChatGPT用" : "Gemini用"}プロンプトを3パターン生成</>
-          )}
-        </button>
-      ) : (
-        <button
-          onClick={generate3Images}
-          disabled={imageLoading}
-          className={`w-full py-3.5 text-base font-bold flex items-center justify-center gap-3 ${c.bg} ${c.bgHover} text-white rounded disabled:opacity-50 transition shadow-lg`}
-        >
-          {imageLoading ? (
-            <><Loader2 className="w-5 h-5 animate-spin" /> 3枚生成中...（1〜2分かかります）</>
-          ) : (
-            <><ImageIcon className="w-5 h-5" /> {imageModel === "dall-e-3" ? "DALL-E 3" : "GPT-Image-1"}で3枚生成</>
-          )}
-        </button>
-      )}
-
-      {/* === コピペモード出力 === */}
-      {mode === "copy" && output && (
-        <div className="mt-6 space-y-4">
-          <div className="flex items-center justify-between">
-            <div className="text-xs uppercase font-bold text-slate-700 tracking-widest">生成された3パターン</div>
-            <div className="flex gap-2">
-              <button
-                onClick={copy}
-                className={`flex items-center gap-1 px-3 py-1.5 text-xs font-bold border rounded transition ${
-                  copied ? "bg-emerald-600 text-white border-emerald-600" : "border-slate-200 hover:border-slate-300"
-                }`}
-              >
-                {copied ? <Check className="w-3 h-3" /> : <Copy className="w-3 h-3" />}
-                {copied ? "コピー済" : "全文コピー"}
-              </button>
-              <button
-                onClick={() => runCopyMode()}
-                disabled={loading}
-                className="flex items-center gap-1 px-3 py-1.5 text-xs font-bold border border-slate-200 hover:border-slate-300 rounded transition disabled:opacity-50"
-              >
-                <RefreshCw className={`w-3 h-3 ${loading ? "animate-spin" : ""}`} /> 再生成
-              </button>
-            </div>
-          </div>
-          <pre
-            className="p-4 border border-slate-300 bg-slate-50 rounded text-sm whitespace-pre-wrap overflow-x-auto text-slate-900"
-            style={{ fontFamily: "inherit", lineHeight: 1.7, maxHeight: "500px", overflowY: "auto" }}
-          >
-            {output}
-          </pre>
-
-          {/* === コピペ用：修正指示 === */}
-          <div className="border border-slate-300 rounded-lg p-3 bg-white space-y-2">
-            <div className="text-xs font-bold text-slate-700 flex items-center gap-1">
-              <Edit3 className="w-3 h-3" /> 修正指示で再生成
-            </div>
-            <div className="flex gap-2">
-              <select
-                value={revisionTargetPattern || ""}
-                onChange={(e) => setRevisionTargetPattern(e.target.value || null)}
-                className="px-2 py-1.5 border border-slate-200 rounded bg-white text-xs text-slate-900"
-              >
-                <option value="">全体を修正</option>
-                <option value="1">パターン1をベースに</option>
-                <option value="2">パターン2をベースに</option>
-                <option value="3">パターン3をベースに</option>
-              </select>
-              <input
-                type="text"
-                value={revisionInstruction}
-                onChange={(e) => setRevisionInstruction(e.target.value)}
-                placeholder="例：もっと明るい雰囲気で / 笑顔の人物を中央に / 公園を背景に"
-                className="flex-1 px-3 py-1.5 border border-slate-200 rounded bg-white text-xs focus:outline-none focus:border-slate-400 text-slate-900"
-              />
-              <button
-                onClick={() => runCopyMode(revisionInstruction, revisionTargetPattern)}
-                disabled={loading || !revisionInstruction.trim()}
-                className={`px-3 py-1.5 text-xs font-bold ${c.bg} ${c.bgHover} text-white rounded disabled:opacity-50 transition flex items-center gap-1 whitespace-nowrap`}
-              >
-                <Wand2 className="w-3 h-3" /> 反映
-              </button>
-            </div>
-          </div>
-
-          <div className="text-xs text-slate-600 leading-relaxed bg-blue-50 border border-blue-200 rounded p-3">
-            <b>使い方：</b>
-            {aiTarget === "chatgpt"
-              ? "「全文コピー」→ ChatGPTに貼り付けて画像生成。ChatGPT Plus契約があれば追加費用なし。"
-              : "「全文コピー」→ Gemini / Nano Banana に貼り付けて画像生成。"}
-          </div>
-        </div>
-      )}
-
-      {/* === APIモード出力 === */}
-      {mode === "api" && generatedImages.length > 0 && (
-        <div className="mt-6 space-y-4">
-          <div className="flex items-center justify-between flex-wrap gap-2">
-            <div className="text-xs uppercase font-bold text-slate-700 tracking-widest">
-              生成された画像（{generatedImages.length}枚）
-            </div>
-            <button
-              onClick={regenerateAll}
-              disabled={imageLoading}
-              className="flex items-center gap-1 px-3 py-1.5 text-xs font-bold border border-slate-200 hover:border-slate-300 rounded transition disabled:opacity-50"
-            >
-              <RefreshCw className={`w-3 h-3 ${imageLoading ? "animate-spin" : ""}`} /> 全部再生成
-            </button>
-          </div>
-
-          {/* === 全体修正指示 === */}
-          <div className="border border-slate-300 rounded-lg p-3 bg-white space-y-2">
-            <div className="text-xs font-bold text-slate-700 flex items-center gap-1">
-              <Edit3 className="w-3 h-3" /> 全体に修正指示を反映して再生成
-            </div>
-            <div className="flex gap-2">
-              <input
-                type="text"
-                value={revisionInstruction}
-                onChange={(e) => setRevisionInstruction(e.target.value)}
-                placeholder="例：もっと明るい雰囲気で / 笑顔の人物を中央に / 公園を背景に"
-                className="flex-1 px-3 py-1.5 border border-slate-200 rounded bg-white text-xs focus:outline-none focus:border-slate-400 text-slate-900"
-              />
-              <button
-                onClick={reviseAllWithInstruction}
-                disabled={imageLoading || !revisionInstruction.trim()}
-                className={`px-3 py-1.5 text-xs font-bold ${c.bg} ${c.bgHover} text-white rounded disabled:opacity-50 transition flex items-center gap-1 whitespace-nowrap`}
-              >
-                <Wand2 className="w-3 h-3" /> 反映して再生成
-              </button>
-            </div>
-          </div>
-
-          {/* === 画像グリッド === */}
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-            {generatedImages.map((img, idx) => (
-              <div key={idx} className={`border rounded-lg overflow-hidden bg-white ${
-                revisionTargetIdx === idx ? `${c.border} ring-2` : "border-slate-300"
-              }`}>
-                <div className={`${c.bg} text-white text-[11px] font-bold px-2 py-1`}>
-                  パターン{idx + 1}
-                </div>
-                <img src={img.url} alt={`Generated ${idx + 1}`} className="w-full h-auto block" />
-                <div className="p-2.5 space-y-2">
-                  <details className="text-xs">
-                    <summary className="cursor-pointer text-slate-600 font-semibold text-[10px]">使用したプロンプト</summary>
-                    <p className="mt-1 text-slate-500 leading-tight text-[10px]">{img.prompt}</p>
-                  </details>
-                  <div className="grid grid-cols-2 gap-1.5">
-                    <button
-                      onClick={() => downloadImage(img.url, idx + 1)}
-                      className={`py-1.5 text-[11px] font-bold ${c.bg} ${c.bgHover} text-white rounded transition flex items-center justify-center gap-1`}
-                    >
-                      <Download className="w-3 h-3" /> 保存
-                    </button>
-                    <button
-                      onClick={() => setRevisionTargetIdx(revisionTargetIdx === idx ? null : idx)}
-                      className={`py-1.5 text-[11px] font-bold border rounded transition flex items-center justify-center gap-1 ${
-                        revisionTargetIdx === idx
-                          ? `${c.bg} text-white border-transparent`
-                          : "border-slate-300 text-slate-700 hover:bg-slate-50"
-                      }`}
-                    >
-                      <Wand2 className="w-3 h-3" /> {revisionTargetIdx === idx ? "選択中" : "微調整"}
-                    </button>
-                  </div>
-                </div>
-              </div>
-            ))}
-          </div>
-
-          {/* === 個別画像の修正指示 === */}
-          {revisionTargetIdx !== null && (
-            <div className={`border-2 ${c.border} rounded-lg p-3 ${c.bg50} space-y-2`}>
-              <div className="text-xs font-bold flex items-center gap-1">
-                <Wand2 className={`w-3 h-3 ${c.text}`} />
-                <span className={c.text}>パターン{revisionTargetIdx + 1}をベースに微調整 → 3枚のバリエーション生成</span>
-              </div>
-              <div className="flex gap-2">
-                <input
-                  type="text"
-                  value={revisionInstruction}
-                  onChange={(e) => setRevisionInstruction(e.target.value)}
-                  placeholder="例：色味だけ変更 / ポーズを変えて / 背景をオフィスに"
-                  className="flex-1 px-3 py-1.5 border border-slate-200 rounded bg-white text-xs focus:outline-none focus:border-slate-400 text-slate-900"
-                />
-                <button
-                  onClick={() => reviseFromImage(revisionTargetIdx)}
-                  disabled={imageLoading || !revisionInstruction.trim()}
-                  className={`px-3 py-1.5 text-xs font-bold ${c.bg} ${c.bgHover} text-white rounded disabled:opacity-50 transition flex items-center gap-1 whitespace-nowrap`}
-                >
-                  <Sparkles className="w-3 h-3" /> 生成
-                </button>
-                <button
-                  onClick={() => { setRevisionTargetIdx(null); setRevisionInstruction(""); }}
-                  className="px-3 py-1.5 text-xs font-bold border border-slate-300 hover:border-slate-400 rounded transition"
-                >
-                  キャンセル
-                </button>
-              </div>
-              <div className="text-[10px] text-slate-600">
-                💡 同じテイストで微調整したい時に便利。元のプロンプトを継承して修正指示を反映します。
-              </div>
-            </div>
-          )}
-        </div>
-      )}
-    </div>
-  );
-};
 
 /* =========================================================================
    【通勤圏エリア抽出】事業所住所＋エリア一覧→30/45/60分圏内のエリア抽出
@@ -5155,11 +4027,11 @@ ${areaList}
 
 上記エリア一覧の各市区町村について、事業所からの一般道（高速道路を使わない）での車通勤所要時間を推定し、30分圏内・45分圏内・60分圏内・60分超に分類してください。`;
 
-      const res = await fetch("/api/claude", {
+      const res = await fetch("https://api.anthropic.com/v1/messages", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          model: "claude-sonnet-4-20250514",
+          model: "claude-sonnet-4-6",
           max_tokens: 4000,
           system: systemPrompt,
           messages: [{ role: "user", content: userContent }],
@@ -5429,7 +4301,6 @@ const TABS = [
   { id: "section", label: "フィールド別", icon: Layers, desc: "部分編集" },
   { id: "scout", label: "スカウトメール", icon: Mail, desc: "原稿→メール変換" },
   { id: "commute", label: "通勤圏抽出", icon: Target, desc: "30/45/60分圏内" },
-  { id: "image", label: "画像プロンプト", icon: ImageIcon, desc: "Gemini用生成" },
 ];
 
 const PLATFORMS = [
@@ -5456,7 +4327,7 @@ const PLATFORMS = [
   },
 ];
 
-export default function ManuscriptStudio() {
+export default function App() {
   const [platform, setPlatform] = useState("jobmedley");
   const [tab, setTab] = useState("new");
 
@@ -5643,7 +4514,6 @@ export default function ManuscriptStudio() {
               {tab === "section" && <SectionTab />}
               {tab === "scout" && <ScoutMailTab />}
               {tab === "commute" && <CommuteAreaTab />}
-              {tab === "image" && <ImagePromptTab platform="jobmedley" />}
             </div>
           </>
         )}
@@ -5678,29 +4548,11 @@ export default function ManuscriptStudio() {
                 </div>
                 <div className="text-[11px] text-slate-500">4パターン×4トーンで原稿生成</div>
               </button>
-              <button
-                onClick={() => setTab("image")}
-                className={`group relative border rounded-lg p-3 text-left transition-all ${
-                  tab === "image"
-                    ? "border-rose-700 bg-rose-50 ring-2 ring-rose-100"
-                    : "border-slate-200 bg-white hover:border-slate-300 hover:bg-slate-100/50"
-                }`}
-              >
-                {tab === "image" && <div className="absolute top-0 left-0 w-full h-0.5 bg-rose-700 rounded-t-lg" />}
-                <div className="flex items-center gap-2 mb-1">
-                  <ImageIcon className={`w-4 h-4 ${tab === "image" ? "text-rose-700" : "text-slate-500"}`} />
-                  <span className={`text-sm font-bold ${tab === "image" ? "text-slate-900" : "text-slate-700"}`}>
-                    画像プロンプト
-                  </span>
-                </div>
-                <div className="text-[11px] text-slate-500">Gemini用生成</div>
-              </button>
             </div>
 
             {/* タブコンテンツ */}
             <div className="bg-white border border-slate-200 rounded-lg p-5 md:p-6">
-              {tab !== "image" && <AirworkStudio />}
-              {tab === "image" && <ImagePromptTab platform="airwork" />}
+              <AirworkStudio />
             </div>
           </>
         )}
@@ -5735,29 +4587,11 @@ export default function ManuscriptStudio() {
                 </div>
                 <div className="text-[11px] text-slate-500">14フィールド・装飾型原稿</div>
               </button>
-              <button
-                onClick={() => setTab("image")}
-                className={`group relative border rounded-lg p-3 text-left transition-all ${
-                  tab === "image"
-                    ? "border-sky-600 bg-sky-50 ring-2 ring-sky-100"
-                    : "border-slate-200 bg-white hover:border-slate-300 hover:bg-slate-100/50"
-                }`}
-              >
-                {tab === "image" && <div className="absolute top-0 left-0 w-full h-0.5 bg-sky-600 rounded-t-lg" />}
-                <div className="flex items-center gap-2 mb-1">
-                  <ImageIcon className={`w-4 h-4 ${tab === "image" ? "text-sky-700" : "text-slate-500"}`} />
-                  <span className={`text-sm font-bold ${tab === "image" ? "text-slate-900" : "text-slate-700"}`}>
-                    画像プロンプト
-                  </span>
-                </div>
-                <div className="text-[11px] text-slate-500">Gemini用生成（Airwork同仕様）</div>
-              </button>
             </div>
 
             {/* タブコンテンツ */}
             <div className="bg-white border border-slate-200 rounded-lg p-5 md:p-6">
-              {tab !== "image" && <IndeedStudio />}
-              {tab === "image" && <ImagePromptTab platform="indeed" />}
+              <IndeedStudio />
             </div>
           </>
         )}
