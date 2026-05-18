@@ -476,7 +476,7 @@ const callClaudeAPI = async (systemPrompt, userContent, tools = null) => {
   };
   if (tools) body.tools = tools;
 
-  const response = await fetch("https://api.anthropic.com/v1/messages", {
+  const response = await fetch("/api/claude", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(body),
@@ -2320,7 +2320,7 @@ function buildAirworkSectionPrompt(section, inputs, existingOutput, revisionInst
 }
 
 async function callAirworkAPI(prompt, maxTokens = 4000) {
-  const res = await fetch("https://api.anthropic.com/v1/messages", {
+  const res = await fetch("/api/claude", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
@@ -3315,7 +3315,7 @@ const INDEED_ADDITIONAL_APP_INFO = [
 ];
 
 async function callIndeedAPI(systemPrompt, userContent) {
-  const res = await fetch("https://api.anthropic.com/v1/messages", {
+  const res = await fetch("/api/claude", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
@@ -4152,7 +4152,7 @@ ${areaList}
 
 上記エリア一覧の各市区町村について、事業所からの一般道（高速道路を使わない）での車通勤所要時間を推定し、30分圏内・45分圏内・60分圏内・60分超に分類してください。`;
 
-      const res = await fetch("https://api.anthropic.com/v1/messages", {
+      const res = await fetch("/api/claude", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
