@@ -44,49 +44,157 @@ import {
 const DECORATION_TYPES = `
 【ジョブメドレー装飾原稿の7大型（13本分析結果）】
 
-1. マルチカラー華やか型（P1のびのび広場）
+1. マルチカラー華やか型（参照：P1）
    - SPECIAL POINTS枠（黄色ドット背景・囲み枠）
    - セクション毎に色を変える（ピンク/オレンジ/緑/青）
    - グラデーションCTA（強インパクト）
    - 情報密度最大・全面装飾
 
-2. マルチカラー整理リッチ型（P6キャンパス石神・P12ぽかぽか広場）
+2. マルチカラー整理リッチ型（参照：P6・P12）
    - インライン塗りラベル見出し（セクション毎に色を変える）
    - 縦線＋ドット円のタイムライン
    - カプセル型ポイントカード（丸アイコン＋flex）
    - マルチカラーだが整理された印象
 
-3. ブルー信頼型（P3放デイ）
+3. ブルー信頼型（参照：P3）
    - ブルー単色階調（#0077b6系）
    - 帯型見出し（背景塗り＋白文字）
    - 絵文字アイコン付き横並びflexカード
    - タブ飛び出し型スタッフの声
    - 水色グラデーションCTA
 
-4. 統一リズム型（P5八千代・P8ナチュレ・P9ロレイン・P11aid）
+4. 統一リズム型（参照：P5・P8・P9・P11）
    - 全セクションで同じ見出しデザインを反復使用
    - 「background:#xxx; border-left:5px solid #xxx; border-radius:6px」パターン
    - ポイントリスト（薄色背景＋絵文字＋太字）
    - 塗りラベル＋Q&A絵文字のインタビューカード
    - 最も汎用性が高い王道型
 
-5. エレガント構造型（P2 L'AJITTO・P10 image Act）
+5. エレガント構造型（参照：P2・P10）
    - ヒーローグラデカード（冒頭の世界観提示）
    - 給与ハイライト単独カード
    - 番号付きポイント・入れ子構造紹介カード
    - 白＋1-2色のアースカラー
    - 美容・上質系訴求
 
-6. ミニマル・スポット型（P4つむぐ・P7虹色のたね・P13村上歯科）
+6. ミニマル・スポット型（参照：P4・P7・P13）
    - プレーンHTML（<h3>+<br>+<strong>）主体
    - 装飾はスタッフインタビュー等の1-2ブロックのみ
    - ベージュラッパー（#f7f6f3）+左縦線カード
    - 医療系ではスタッフの声＋患者の声のダブル配置
 
-7. 単色リッチ型（P12ぽかぽか広場）
+7. 単色リッチ型（参照：P12）
    - 統一色でありながら装飾密度が高い
    - カプセル型・丸アイコン・縦線タイムライン
    - 中央下線見出し＋塗りラベル見出しの使い分け
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+【装飾型8〜22（OMINAS独自開発・追加装飾型15種）】
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+8. ジャーナル雑誌型
+   - 編集記事風レイアウト・明朝体serif主体
+   - VOL.01/FEATURE 01 等の英字ナンバリング
+   - 二重罫線・ドロップキャップ・引用ブロック
+   - カラー：生成り(#faf7f2)＋ボルドー(#8a4a3a)＋黒
+   - 推奨：美容室・カフェ併設・上質こだわり系
+
+9. タイムライン型（1日の流れ）
+   - 朝→昼→午後→夜の時系列カード構成
+   - 縦線＋丸アイコンタイムライン
+   - 時間帯ごとに色が遷移（朝オレンジ→夜ネイビー）
+   - 推奨：介護・保育・1日の流れで職場を魅せたい案件
+
+10. データ主役型（インフォグラフィック）
+    - 数字を巨大表示（離職率・有給取得率・年収モデル等）
+    - グリッド配置のメトリクスカード
+    - プログレスバー・棒グラフ風装飾
+    - カラー：ダーク背景(#0f1419)＋イエロー(#facc15)アクセント
+    - 推奨：大規模法人・福利厚生強み・客観的訴求
+
+11. FAQ対話型
+    - Q&A形式で応募者の不安を先回り解消
+    - Q枠（塗り円）＋A枠（白抜き円）の対比デザイン
+    - 「未経験で大丈夫？」等の典型的不安に回答
+    - カラー：クリーム(#fef9f3)＋オレンジ(#ff9848)
+    - 推奨：未経験OK・ブランクOK・心理障壁が高い案件
+
+12. ビフォーアフター型
+    - 入社時→現在の成長軌跡を複数事例で並列表示
+    - 左右2カラム（過去⇒現在）の対比カード
+    - 「自分にもできる」感を物語で表現
+    - カラー：ネイビー(#1e3a5f)＋イエロー(#facc15)
+    - 推奨：教育充実・キャリアパス訴求・未経験歓迎
+
+13. マニフェスト型（宣言調）
+    - 「私たちが絶対に守ること」を4項目で宣言
+    - 巨大番号(01/02/03/04)＋骨太の宣言文
+    - 罫線で区切るシリアスな構成
+    - カラー：白＋黒のみ・極端なコントラスト
+    - 推奨：訪問看護・理念訴求・骨太事業所
+
+14. ミニマル・タイポ型
+    - 文字組みだけで魅せる超ミニマル設計
+    - フォントウェイト差(thin↔black)で階層
+    - 大胆な余白・等幅フォント番号
+    - カラー：白＋黒のみ・写真不要
+    - 推奨：歯科・高単価専門職・文字情報のみで勝負
+
+15. シネマティック型（映画ポスター風）
+    - ダーク背景＋ゴールド装飾・重厚な世界観
+    - ACT I/II/III の章立て構成
+    - 角飾り(L字罫線)カード・グラデ背景
+    - カラー：黒(#0a0a0f)＋金(#d4af37)＋クリーム
+    - 推奨：夜勤専従・特殊業態・覚悟訴求
+
+16. レター手紙型
+    - 代表からの手紙形式・長文を読ませる
+    - 「○○さんへ」「P.S.」「敬具」等の手紙構造
+    - 花記号(✿)・自筆風フォント
+    - カラー：生成り(#f8f3e8)＋セピア(#a85020)
+    - 推奨：訪問介護・小規模・人柄訴求・代表メッセージ
+
+17. ダッシュボード型（テック系）
+    - 管理画面風メトリクス＋等幅フォント(monospace)
+    - グリッド配置のステータスカード
+    - MUST/WANT バッジ・コードコメント風見出し
+    - カラー：ダーク(#0f172a)＋シアン(#22d3ee)
+    - 推奨：医療事務DX・データ系職種・現代的訴求
+
+18. ヒストリー年表型
+    - 創業から現在までの歩みを縦線年表で可視化
+    - 各年代に丸印＋出来事の説明
+    - 現在(NOW)は赤丸でハイライト
+    - カラー：セピア(#f5efe2)＋ブラウン(#8a5a30)
+    - 推奨：老舗病院・100年級の歴史ある事業所・伝統訴求
+
+19. アンビエント癒し型
+    - パステルカラー＋丸み多用の優しい世界観
+    - 花記号(✿)・グラデーションの球
+    - 各セクションに異なる優しい色を配色
+    - カラー：パステルピンク(#fef6f7)＋パステルブルー(#f0f4fa)
+    - 推奨：訪問看護・ヒーリング系・病院疲れ層
+
+20. 工業デザイン型
+    - 硬質な造り・SPEC表記・斜め切り装飾
+    - チャコール背景＋オレンジアクセント
+    - 等幅フォント(SPEC.001/STAR rating)
+    - カラー：チャコール(#2a2a2a)＋オレンジ(#f59e0b)
+    - 推奨：歯科技工士・整備工・職人系・技術職
+
+21. レトロポップ型
+    - 80年代風ポップ配色＋ステッカー風要素
+    - ボックスシャドウオフセット(6px 6px 0)
+    - 蛍光ピンク・蛍光イエロー・ターコイズ
+    - カラー：濃紫(#3a1a4a)枠＋ネオン多色
+    - 推奨：保育・若年層・楽しい職場感を最大化
+
+22. ボタニカル型
+    - 植物モチーフ＋アースカラー＋明朝体
+    - 葉・花の絵文字を背景装飾的に配置
+    - 各セクション異なる植物カラー(緑/茶/青/紅)
+    - カラー：セージ(#f5f0e6)＋深緑(#6a8038)
+    - 推奨：森のようちえん・自然派保育園・有機系事業所
 `;
 
 const COLOR_THEMES = `
@@ -146,7 +254,7 @@ D. 情緒・感情訴求型（P3）
    使いどころ：福祉/教育/情緒訴求
 
 E. ブランド一体型（P2）
-   「L'AJITTOは一人ひとりの幸せに向き合うサロンです」等のブランド主語
+   「（ブランド名）は一人ひとりの幸せに向き合うサロンです」等のブランド主語
    使いどころ：上質・ブランド訴求
 `;
 
@@ -807,12 +915,29 @@ const ErrorBox = ({ error }) =>
 
 const DECORATION_OPTIONS = [
   { id: "auto", label: "おまかせ（AIが最適な型を選択）", desc: "求人情報から最適な装飾型を自動判定" },
+  // ─── 装飾型1〜7（13本分析） ───
   { id: "multicolor_rich", label: "マルチカラー華やか型", desc: "P1型・SPECIAL POINTS枠・フル装飾" },
   { id: "multicolor_organized", label: "マルチカラー整理型", desc: "P6/P12型・カプセルカード・塗りラベル見出し" },
   { id: "blue_trust", label: "ブルー信頼型", desc: "P3型・帯見出し・医療教育向け" },
   { id: "unified_rhythm", label: "統一リズム型", desc: "P5/P8/P9/P11型・万能・色替え可能" },
   { id: "elegant_structure", label: "エレガント構造型", desc: "P2/P10型・ヒーローグラデ・美容上質系" },
   { id: "minimal_spot", label: "ミニマル・スポット型", desc: "P4/P7/P13型・装飾控えめ・堅実系" },
+  // ─── 追加装飾型15種 ───
+  { id: "journal_magazine", label: "ジャーナル雑誌型", desc: "編集記事風・明朝・ドロップキャップ／美容・こだわり系" },
+  { id: "timeline_day", label: "タイムライン型", desc: "1日の流れ可視化・朝→夜の色遷移／介護・保育" },
+  { id: "data_driven", label: "データ主役型", desc: "数字巨大表示・ダーク＋イエロー／大規模法人・福利厚生" },
+  { id: "faq_dialogue", label: "FAQ対話型", desc: "Q&A形式で不安解消／未経験OK・ブランクOK" },
+  { id: "before_after", label: "ビフォーアフター型", desc: "成長軌跡を左右並列／教育充実・キャリアパス" },
+  { id: "manifesto", label: "マニフェスト型", desc: "巨大番号＋宣言文／訪問看護・理念訴求" },
+  { id: "minimal_typography", label: "ミニマル・タイポ型", desc: "文字組みだけで魅せる／歯科・高単価専門職" },
+  { id: "cinematic", label: "シネマティック型", desc: "黒＋金の重厚／夜勤専従・特殊業態" },
+  { id: "letter", label: "レター手紙型", desc: "代表からの手紙形式／訪問介護・小規模・人柄訴求" },
+  { id: "dashboard", label: "ダッシュボード型", desc: "管理画面風・等幅フォント／医療事務DX・テック系" },
+  { id: "history_timeline", label: "ヒストリー年表型", desc: "創業〜現在の歩み／老舗病院・歴史ある事業所" },
+  { id: "ambient_healing", label: "アンビエント癒し型", desc: "パステル＋丸み／訪問看護・ヒーリング" },
+  { id: "industrial", label: "工業デザイン型", desc: "チャコール＋オレンジ／歯科技工士・職人系" },
+  { id: "retro_pop", label: "レトロポップ型", desc: "80年代風ポップ／保育・若年層" },
+  { id: "botanical", label: "ボタニカル型", desc: "植物モチーフ＋アースカラー／森のようちえん・自然派" },
 ];
 
 const COLOR_OPTIONS = [
@@ -1062,8 +1187,8 @@ ${output}
       />
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mb-3">
-        {field("facility", "事業所名", "例：医療法人村上歯科医院", 1, true)}
-        {field("jobType", "職種", "例：歯科衛生士", 1, true)}
+        {field("facility", "事業所名", "例：医療法人○○会 △△クリニック", 1, true)}
+        {field("jobType", "職種", "例：看護師／介護福祉士／保育士", 1, true)}
         <div>
           <label className="block text-xs font-semibold text-slate-700 mb-1.5">雇用形態</label>
           <select
@@ -1078,20 +1203,20 @@ ${output}
           </select>
         </div>
         {field("industry", "業種カテゴリ", "例：歯科／美容／看護／介護／保育")}
-        {field("location", "勤務地", "例：福岡県北九州市小倉北区")}
-        {field("salary", "給与", "例：月給28万円〜35万円")}
-        {field("workHours", "勤務時間", "例：8:45〜18:00（休憩60分）")}
-        {field("holidays", "休日", "例：年間休日125日／日曜祝日休み")}
+        {field("location", "勤務地", "例：東京都○○区／神奈川県○○市")}
+        {field("salary", "給与", "例：月給25万円〜35万円")}
+        {field("workHours", "勤務時間", "例：9:00〜18:00（休憩60分）")}
+        {field("holidays", "休日", "例：年間休日120日／週休2日制")}
       </div>
 
       <div className="space-y-3">
-        {field("duties", "業務内容", "例：メインテナンス60分枠／診療補助／患者担当制", 3)}
-        {field("requirements", "応募資格", "例：歯科衛生士免許／未経験OK／新卒歓迎", 2)}
-        {field("welcomed", "歓迎要件", "例：患者担当制の経験／接客が好きな方", 2)}
+        {field("duties", "業務内容", "例：◯◯業務／◯◯対応／記録業務", 3)}
+        {field("requirements", "応募資格", "例：要資格／未経験OK／経験者優遇", 2)}
+        {field("welcomed", "歓迎要件", "例：実務経験／関連資格／チームワーク重視", 2)}
         {field("benefits", "福利厚生", "例：社保完備／交通費／昇給年1回／賞与年2回", 2)}
-        {field("features", "事業所の特徴・強み", "例：メンテ60分枠／予防重視／院内全面禁煙", 3)}
-        {field("targetPersona", "ターゲット人材", "例：じっくり患者と向き合いたい方", 2)}
-        {field("otherNotes", "その他メモ（インタビュー素材など）", "例：推し活と両立しているスタッフがいる", 3)}
+        {field("features", "事業所の特徴・強み", "例：少人数体制／教育充実／働きやすい環境", 3)}
+        {field("targetPersona", "ターゲット人材", "例：じっくり向き合いたい方／成長意欲のある方", 2)}
+        {field("otherNotes", "その他メモ（インタビュー素材など）", "例：スタッフの紹介や働き方の特徴など", 3)}
       </div>
 
       <ErrorBox error={error} />
@@ -1461,7 +1586,7 @@ ${output}
       <textarea
         value={input}
         onChange={(e) => setInput(e.target.value)}
-        placeholder={`例：\n・職種：歯科衛生士（正職員）\n・月給28万円〜\n・メンテナンス60分枠\n・年間休日125日以上\n・祝日振替なし\n・未経験OK・新卒歓迎`}
+        placeholder={`例：\n・職種：看護師（正職員）\n・月給25万円〜\n・少人数体制\n・年間休日120日以上\n・夜勤なし\n・未経験OK・新卒歓迎`}
         className="w-full h-52 bg-white border border-slate-200 rounded-lg p-4 text-sm text-slate-900 placeholder-slate-400 focus:outline-none focus:border-teal-500 focus:ring-1 focus:ring-teal-200 transition resize-y"
       />
 
@@ -4168,7 +4293,7 @@ ${areaList}
             type="text"
             value={address}
             onChange={(e) => setAddress(e.target.value)}
-            placeholder="例：京都府京都市中京区烏丸通御池下る虎屋町566-1"
+            placeholder="例：東京都新宿区西新宿1-1-1"
             className="w-full bg-white border border-slate-200 rounded-lg p-3 text-sm text-slate-900 placeholder-slate-400 focus:outline-none focus:border-teal-500 focus:ring-1 ring-teal-200 transition"
           />
           <p className="text-[11px] text-slate-500 mt-1.5">
@@ -4188,7 +4313,7 @@ ${areaList}
           <textarea
             value={areaList}
             onChange={(e) => setAreaList(e.target.value)}
-            placeholder={`ジョブメドレーのスカウト画面でエリア選択画面を開き、表示された市区町村一覧をそのままコピペ\n\n例：\n京都市\n京都市北区\n京都市上京区\n京都市左京区\n福知山市\n舞鶴市\n綾部市\n...`}
+            placeholder={`ジョブメドレーのスカウト画面でエリア選択画面を開き、表示された市区町村一覧をそのままコピペ\n\n例：\n横浜市\n横浜市西区\n横浜市中区\n横浜市港北区\n川崎市\n相模原市\n藤沢市\n...`}
             className="w-full h-48 bg-white border border-slate-200 rounded-lg p-3 text-sm text-slate-900 placeholder-slate-400 focus:outline-none focus:border-teal-500 focus:ring-1 ring-teal-200 transition resize-y"
           />
           <p className="text-[11px] text-slate-500 mt-1.5">
@@ -4297,8 +4422,6 @@ ${areaList}
 const TABS = [
   { id: "new", label: "新規作成", icon: Plus, desc: "情報入力→全12フィールド" },
   { id: "rewrite", label: "リライト", icon: PenLine, desc: "ペースト or URL" },
-  { id: "catch", label: "キャッチコピー", icon: Zap, desc: "3案生成" },
-  { id: "section", label: "フィールド別", icon: Layers, desc: "部分編集" },
   { id: "scout", label: "スカウトメール", icon: Mail, desc: "原稿→メール変換" },
   { id: "commute", label: "通勤圏抽出", icon: Target, desc: "30/45/60分圏内" },
 ];
@@ -4481,7 +4604,7 @@ export default function App() {
             </div>
 
             {/* サブタブ */}
-            <div className="grid grid-cols-2 md:grid-cols-7 gap-2 mb-6">
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-2 mb-6">
               {TABS.map((t) => {
                 const Icon = t.icon;
                 const active = tab === t.id;
@@ -4510,8 +4633,6 @@ export default function App() {
             <div className="bg-white border border-slate-200 rounded-lg p-5 md:p-6">
               {tab === "new" && <NewTab />}
               {tab === "rewrite" && <RewriteTab />}
-              {tab === "catch" && <CatchTab />}
-              {tab === "section" && <SectionTab />}
               {tab === "scout" && <ScoutMailTab />}
               {tab === "commute" && <CommuteAreaTab />}
             </div>
@@ -4606,4 +4727,3 @@ export default function App() {
     </div>
   );
 }
-
