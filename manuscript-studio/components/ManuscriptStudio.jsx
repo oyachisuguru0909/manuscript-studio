@@ -59,10 +59,62 @@ function safeParseAIJSON(rawText) {
 
   // 第2段：賢い修復（ステートマシン）
   const repaired = repairJSONString(c);
-  try { return JSON.parse(repaired); } catch (e2) {
-    // 失敗時は元のエラーを再現
-    return JSON.parse(c);
+  try { return JSON.parse(repaired); } catch (e2) {}
+
+  // 第3段：フィールド単位の緊急抽出（JSON構造が壊れていても主要フィールドを救出）
+  const rescued = rescueFieldsFromBrokenJSON(c);
+  if (rescued && Object.keys(rescued).length > 0) {
+    return rescued;
   }
+
+  // 全部失敗：デバッグしやすいよう、生データの先頭500文字を含めてエラー化
+  const preview = c.slice(0, 500).replace(/\n/g, "⏎");
+  throw new Error(
+    "JSON解析に失敗しました。AIの出力が不正な形式です。\n" +
+    "【生データ先頭500字】\n" + preview
+  );
+}
+
+// JSON構造が壊れていても、"key": "値" の形から主要フィールドを正規表現で救出する
+// 最終手段：完全なJSONパースを諦め、各フィールドを個別に抜き出す
+function rescueFieldsFromBrokenJSON(text) {
+  const result = {};
+  // "fieldName": "..." 形式を抽出（値は次の "key": または } まで）
+  // 値の中の改行・クォートは許容する貪欲マッチ
+  const knownStringFields = [
+    "title", "subtitle", "mainContent", "jobDescription", "appeal",
+    "appealPoints", "companyInfo", "workLocation", "workTime",
+    "salary", "holidays", "benefits", "selectionProcess",
+    "summary", "catchphrase", "body", "content"
+  ];
+
+  for (const field of knownStringFields) {
+    // "field"\s*:\s*"（値）" のパターン。値は最短で次の `",\n  "key"` or `"\n}` まで
+    const re = new RegExp(
+      '"' + field + '"\\s*:\\s*"([\\s\\S]*?)"\\s*(?=,\\s*"[a-zA-Z]|\\}|\\]\\s*\\})',
+      ""
+    );
+    const m = text.match(re);
+    if (m && m[1] !== undefined) {
+      // 値の中の生クォートを『』に、改行はそのまま保持
+      result[field] = m[1].replace(/"/g, "『");
+    }
+  }
+
+  // 配列フィールドも救出（featureTags等）
+  const arrayFields = ["featureTags", "appealPoints", "items"];
+  for (const field of arrayFields) {
+    const re = new RegExp('"' + field + '"\\s*:\\s*\\[([\\s\\S]*?)\\]', "");
+    const m = text.match(re);
+    if (m && m[1] !== undefined) {
+      const items = m[1].match(/"([^"]*)"/g);
+      if (items) {
+        result[field] = items.map((s) => s.replace(/"/g, ""));
+      }
+    }
+  }
+
+  return result;
 }
 
 // AIが生成したJSONを賢く修復するステートマシン
@@ -101,7 +153,40 @@ function repairJSONString(input) {
           j++;
         }
         const nextNon = input[j] || '';
-        if (nextNon === ':' || nextNon === ',' || nextNon === '}' || nextNon === ']') {
+
+        // 判定A：直後が : , } ] なら正規の終了
+        let isClosing = (nextNon === ':' || nextNon === ',' || nextNon === '}' || nextNon === ']');
+
+        // 判定B：直後が " で始まり、その先が "..." : の形（次のキー）なら正規の終了
+        // 例： ..."終わりの言葉"\n"appeal":"値"  ← この場合 終わりの言葉" は終端
+        if (!isClosing && nextNon === '"') {
+          // j位置から "key": パターンが続くか確認
+          let k = j + 1;
+          let keyContent = "";
+          while (k < input.length && input[k] !== '"' && input[k] !== '\n' && input[k] !== '\r') {
+            keyContent += input[k];
+            k++;
+          }
+          if (input[k] === '"') {
+            // 閉じクォートの後、空白スキップして : があるか
+            let m = k + 1;
+            while (m < input.length && (input[m] === ' ' || input[m] === '\t' || input[m] === '\n' || input[m] === '\r')) {
+              m++;
+            }
+            if (input[m] === ':') {
+              // 次のキーと判定 → この " は正規の終了。ただし手前にカンマが無いので補う
+              isClosing = true;
+              inString = false;
+              out += ch;
+              // カンマを補完（次がキーなのに区切りが無い場合）
+              out += ',';
+              i++;
+              continue;
+            }
+          }
+        }
+
+        if (isClosing) {
           // 正規の文字列終了
           inString = false;
           out += ch;
