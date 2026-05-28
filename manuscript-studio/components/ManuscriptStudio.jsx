@@ -3182,6 +3182,68 @@ function buildAirworkInputSection({ mode, formData, pasteContent }) {
     : pasteContent || "";
 }
 
+// ─────────────────────────────────────────
+// 文字量レベル定義（少なめ / 普通 / 多め）
+// ─────────────────────────────────────────
+const VOLUME_LEVELS = {
+  short: {
+    label: "少なめ",
+    desc: "サクッと読める簡潔版",
+    instruction: `=== 文字量レベル：少なめ（簡潔版）===
+★ 各セクションは2〜3行に凝縮。冗長な説明を排除し要点のみ。
+★ 全体の表示テキストは800〜1,200文字程度を目安。
+★ 社員インタビューは2名×各1問でコンパクトに。
+★ 箇条書きを多用し、文章での説明は最小限に。
+★ スピーディに読み切れる分量を最優先。`,
+  },
+  normal: {
+    label: "普通",
+    desc: "標準的なボリューム",
+    instruction: `=== 文字量レベル：普通（標準版）===
+★ 各セクションは3〜5行。バランスの取れた標準的な分量。
+★ 全体の表示テキストは1,500〜2,200文字程度を目安。
+★ 社員インタビューは2名×各2〜3問。
+★ 読みやすさと情報量のバランスを重視。`,
+  },
+  long: {
+    label: "多め",
+    desc: "しっかり伝える詳細版",
+    instruction: `=== 文字量レベル：多め（詳細版）===
+★ 各セクションは5〜8行。具体例やエピソードを盛り込み充実させる。
+★ 全体の表示テキストは2,500〜3,500文字程度を目安。
+★ 社員インタビューは2〜3名×各3問で深掘り。
+★ 仕事内容や魅力は具体的なシーン描写を加えて説得力を高める。
+★ ただし冗長・同義反復は避け、情報の密度は保つこと。`,
+  },
+};
+
+// 文字量レベルからプロンプト指示を取得
+function getVolumeInstruction(level) {
+  const v = VOLUME_LEVELS[level] || VOLUME_LEVELS.normal;
+  return v.instruction;
+}
+
+// ─────────────────────────────────────────
+// 追加コンテキスト（補足指示・議事録・参考URL）を整形
+// ─────────────────────────────────────────
+function buildExtraContextSection({ freeInstruction, meetingNotes, referenceUrls } = {}) {
+  const parts = [];
+  if (freeInstruction && freeInstruction.trim()) {
+    parts.push(`【補足指示・要望】\n${freeInstruction.trim()}`);
+  }
+  if (meetingNotes && meetingNotes.trim()) {
+    parts.push(`【ヒアリング議事録・取材メモ】\n${meetingNotes.trim()}`);
+  }
+  if (referenceUrls && referenceUrls.length > 0) {
+    const validUrls = referenceUrls.filter((u) => u && u.trim());
+    if (validUrls.length > 0) {
+      parts.push(`【参考URL（会社HP・採用ページ・記事など）】\n${validUrls.map((u) => "・" + u.trim()).join("\n")}\n※上記URLの内容も踏まえて、会社の特徴や魅力を原稿に反映すること。`);
+    }
+  }
+  if (parts.length === 0) return "";
+  return `\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n【追加コンテキスト（必ず内容を反映すること）】\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n${parts.join("\n\n")}\n`;
+}
+
 function buildAirworkBaseRules({ pattern, tone, appeals }) {
   const p = AIRWORK_PATTERNS[pattern];
   const t = AIRWORK_TONES[tone];
@@ -3261,6 +3323,8 @@ function buildAirworkFullPrompt(inputs) {
   return `${buildAirworkBaseRules(inputs)}
 
 ${buildAirworkInputSection(inputs)}
+${buildExtraContextSection(inputs.extraContext)}
+${getVolumeInstruction(inputs.volume)}
 
 === Airwork管理画面のタグ選択肢 ===
 ${tagOptionsText}
@@ -3323,7 +3387,7 @@ function buildAirworkSectionPrompt(section, inputs, existingOutput, revisionInst
   const revisionPart = revisionInstruction
     ? `\n\n【★修正指示（最優先で反映）★】\n${revisionInstruction}\n\n【現在の内容】\n${Array.isArray(currentContent) ? currentContent.join(",") : String(currentContent || "")}\n\n上記の修正指示を反映して、現在の内容を改善してください。`
     : "";
-  return `${buildAirworkBaseRules(inputs)}\n\n${buildAirworkInputSection(inputs)}\n\n既存セクション:\n${others}\n\n作成: ${
+  return `${buildAirworkBaseRules(inputs)}\n\n${buildAirworkInputSection(inputs)}${buildExtraContextSection(inputs.extraContext)}\n${getVolumeInstruction(inputs.volume)}\n\n既存セクション:\n${others}\n\n作成: ${
     instructions[section] || section
   }${revisionPart}\nJSON形式のみ:\n${isArr ? `{"${section}":["..."]}` : `{"${section}":"..."}`}`;
 }
@@ -3617,6 +3681,15 @@ const AirworkStudio = () => {
   const [copiedKey, setCopiedKey] = useState(null);
   const [expandedPattern, setExpandedPattern] = useState(null);
 
+  // 文字量レベル
+  const [volume, setVolume] = useState("normal");
+  // 追加コンテキスト
+  const [extraContext, setExtraContext] = useState({
+    freeInstruction: "",
+    meetingNotes: "",
+    referenceUrls: [""],
+  });
+
   // タグ選択state（ユーザーが微調整可能）
   const [selectedTags, setSelectedTags] = useState({
     workplaceTags: [],
@@ -3630,7 +3703,7 @@ const AirworkStudio = () => {
   });
   const [jobFeatures, setJobFeatures] = useState({});
 
-  const inputs = { mode, formData, pasteContent, pattern, tone, appeals };
+  const inputs = { mode, formData, pasteContent, pattern, tone, appeals, volume, extraContext };
 
   // 生成後、AI推奨をselectedTagsの初期値として反映
   const applyAIRecommendations = (res) => {
@@ -3862,6 +3935,94 @@ const AirworkStudio = () => {
               ))}
             </div>
           )}
+        </div>
+
+        {/* Step 2.5：追加コンテキスト（任意） */}
+        <div>
+          <div className="text-xs uppercase mb-2 text-rose-700 tracking-widest font-bold">Step 2.5 · 追加情報（任意）</div>
+          <div className="space-y-3 bg-slate-50 border border-slate-200 rounded-lg p-3">
+            <div>
+              <label className="block text-xs mb-1 text-slate-600 font-semibold">📝 補足指示・要望</label>
+              <textarea
+                value={extraContext.freeInstruction}
+                onChange={(e) => setExtraContext({ ...extraContext, freeInstruction: e.target.value })}
+                placeholder="例：若手向けに親しみやすく／成長環境を強調／離職率の低さを訴求 など、自由に指示できます"
+                rows={2}
+                className="w-full px-3 py-2 border border-slate-200 rounded bg-white text-sm focus:outline-none focus:border-slate-800 resize-none text-slate-900"
+                style={{ lineHeight: 1.6 }}
+              />
+            </div>
+            <div>
+              <label className="block text-xs mb-1 text-slate-600 font-semibold">📋 ヒアリング議事録・取材メモ</label>
+              <textarea
+                value={extraContext.meetingNotes}
+                onChange={(e) => setExtraContext({ ...extraContext, meetingNotes: e.target.value })}
+                placeholder="商談・ヒアリングで聞いた会社の特徴、社長の想い、現場の雰囲気などを貼り付けると、原稿に反映されます"
+                rows={3}
+                className="w-full px-3 py-2 border border-slate-200 rounded bg-white text-sm focus:outline-none focus:border-slate-800 resize-none text-slate-900"
+                style={{ lineHeight: 1.6 }}
+              />
+            </div>
+            <div>
+              <label className="block text-xs mb-1 text-slate-600 font-semibold">🔗 参考URL（会社HP・採用ページ・記事など）</label>
+              <div className="space-y-2">
+                {extraContext.referenceUrls.map((url, idx) => (
+                  <div key={idx} className="flex gap-2">
+                    <input
+                      type="url"
+                      value={url}
+                      onChange={(e) => {
+                        const next = [...extraContext.referenceUrls];
+                        next[idx] = e.target.value;
+                        setExtraContext({ ...extraContext, referenceUrls: next });
+                      }}
+                      placeholder="https://example.com"
+                      className="flex-1 px-3 py-2 border border-slate-200 rounded bg-white text-sm focus:outline-none focus:border-slate-800 text-slate-900"
+                    />
+                    {extraContext.referenceUrls.length > 1 && (
+                      <button
+                        onClick={() => {
+                          const next = extraContext.referenceUrls.filter((_, i) => i !== idx);
+                          setExtraContext({ ...extraContext, referenceUrls: next });
+                        }}
+                        className="px-3 py-2 text-xs text-red-600 border border-red-200 rounded hover:bg-red-50"
+                      >
+                        削除
+                      </button>
+                    )}
+                  </div>
+                ))}
+                <button
+                  onClick={() => setExtraContext({ ...extraContext, referenceUrls: [...extraContext.referenceUrls, ""] })}
+                  className="text-xs px-3 py-1.5 border border-slate-300 rounded text-slate-600 hover:bg-slate-100"
+                >
+                  ＋ URLを追加
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Step 2.6：文字量 */}
+        <div>
+          <div className="text-xs uppercase mb-2 text-rose-700 tracking-widest font-bold">Step 2.6 · 文字量</div>
+          <div className="grid grid-cols-3 gap-2">
+            {Object.entries(VOLUME_LEVELS).map(([k, v]) => (
+              <button
+                key={k}
+                onClick={() => setVolume(k)}
+                className={
+                  "border rounded-lg p-3 text-center transition " +
+                  (volume === k
+                    ? "border-slate-800 bg-slate-800 text-white"
+                    : "border-slate-200 bg-white hover:border-slate-300")
+                }
+              >
+                <div className="text-sm font-bold">{v.label}</div>
+                <div className={"text-[10px] mt-0.5 " + (volume === k ? "text-slate-300" : "text-slate-500")}>{v.desc}</div>
+              </button>
+            ))}
+          </div>
         </div>
 
         {/* Step 3：パターン */}
@@ -4494,11 +4655,24 @@ const IndeedStudio = () => {
   const [error, setError] = useState(null);
   const [copiedKey, setCopiedKey] = useState(null);
 
+  // 文字量レベル
+  const [volume, setVolume] = useState("normal");
+  // 追加コンテキスト
+  const [extraContext, setExtraContext] = useState({
+    freeInstruction: "",
+    meetingNotes: "",
+    referenceUrls: [""],
+  });
+
   const buildUserContent = () => {
+    const extra = buildExtraContextSection(extraContext);
+    const vol = getVolumeInstruction(volume);
     if (mode === "paste") {
       return `以下の求人情報からIndeed直接投稿用の原稿を作成してください。
 
 ${pasteContent}
+${extra}
+${vol}
 
 上記情報を元に、Indeed for Employersの管理画面に入力する各フィールドの内容をJSON形式で返してください。`;
     }
@@ -4516,6 +4690,8 @@ ${pasteContent}
 【仕事内容】${formData.jobDescription || "（未入力）"}
 【応募要件】${formData.requirements || "（未入力）"}
 【その他メモ】${formData.notes || "（未入力）"}
+${extra}
+${vol}
 
 上記情報を元に、Indeed for Employersの管理画面に入力する各フィールドの内容をJSON形式で返してください。`;
   };
@@ -4783,6 +4959,94 @@ JSON形式のみで返してください: {"${section}": "..."}`;
             </div>
           </div>
         )}
+      </div>
+
+      {/* 追加情報（任意） */}
+      <div className="mb-4">
+        <div className="text-xs uppercase mb-2 text-sky-700 tracking-widest font-bold">追加情報（任意）</div>
+        <div className="space-y-3 bg-slate-50 border border-slate-200 rounded-lg p-3">
+          <div>
+            <label className="block text-xs mb-1 text-slate-600 font-semibold">📝 補足指示・要望</label>
+            <textarea
+              value={extraContext.freeInstruction}
+              onChange={(e) => setExtraContext({ ...extraContext, freeInstruction: e.target.value })}
+              placeholder="例：若手向けに親しみやすく／成長環境を強調／離職率の低さを訴求 など、自由に指示できます"
+              rows={2}
+              className="w-full px-3 py-2 border border-slate-200 rounded bg-white text-sm focus:outline-none focus:border-sky-500 resize-none text-slate-900"
+              style={{ lineHeight: 1.6 }}
+            />
+          </div>
+          <div>
+            <label className="block text-xs mb-1 text-slate-600 font-semibold">📋 ヒアリング議事録・取材メモ</label>
+            <textarea
+              value={extraContext.meetingNotes}
+              onChange={(e) => setExtraContext({ ...extraContext, meetingNotes: e.target.value })}
+              placeholder="商談・ヒアリングで聞いた会社の特徴、社長の想い、現場の雰囲気などを貼り付けると、原稿に反映されます"
+              rows={3}
+              className="w-full px-3 py-2 border border-slate-200 rounded bg-white text-sm focus:outline-none focus:border-sky-500 resize-none text-slate-900"
+              style={{ lineHeight: 1.6 }}
+            />
+          </div>
+          <div>
+            <label className="block text-xs mb-1 text-slate-600 font-semibold">🔗 参考URL（会社HP・採用ページ・記事など）</label>
+            <div className="space-y-2">
+              {extraContext.referenceUrls.map((url, idx) => (
+                <div key={idx} className="flex gap-2">
+                  <input
+                    type="url"
+                    value={url}
+                    onChange={(e) => {
+                      const next = [...extraContext.referenceUrls];
+                      next[idx] = e.target.value;
+                      setExtraContext({ ...extraContext, referenceUrls: next });
+                    }}
+                    placeholder="https://example.com"
+                    className="flex-1 px-3 py-2 border border-slate-200 rounded bg-white text-sm focus:outline-none focus:border-sky-500 text-slate-900"
+                  />
+                  {extraContext.referenceUrls.length > 1 && (
+                    <button
+                      onClick={() => {
+                        const next = extraContext.referenceUrls.filter((_, i) => i !== idx);
+                        setExtraContext({ ...extraContext, referenceUrls: next });
+                      }}
+                      className="px-3 py-2 text-xs text-red-600 border border-red-200 rounded hover:bg-red-50"
+                    >
+                      削除
+                    </button>
+                  )}
+                </div>
+              ))}
+              <button
+                onClick={() => setExtraContext({ ...extraContext, referenceUrls: [...extraContext.referenceUrls, ""] })}
+                className="text-xs px-3 py-1.5 border border-slate-300 rounded text-slate-600 hover:bg-slate-100"
+              >
+                ＋ URLを追加
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* 文字量 */}
+      <div className="mb-4">
+        <div className="text-xs uppercase mb-2 text-sky-700 tracking-widest font-bold">文字量</div>
+        <div className="grid grid-cols-3 gap-2">
+          {Object.entries(VOLUME_LEVELS).map(([k, v]) => (
+            <button
+              key={k}
+              onClick={() => setVolume(k)}
+              className={
+                "border rounded-lg p-3 text-center transition " +
+                (volume === k
+                  ? "border-sky-600 bg-sky-600 text-white"
+                  : "border-slate-200 bg-white hover:border-slate-300")
+              }
+            >
+              <div className="text-sm font-bold">{v.label}</div>
+              <div className={"text-[10px] mt-0.5 " + (volume === k ? "text-sky-100" : "text-slate-500")}>{v.desc}</div>
+            </button>
+          ))}
+        </div>
       </div>
 
       {error && (
