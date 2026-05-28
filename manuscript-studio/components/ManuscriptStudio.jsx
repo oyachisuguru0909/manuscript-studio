@@ -96,8 +96,8 @@ function rescueFieldsFromBrokenJSON(text) {
     );
     const m = text.match(re);
     if (m && m[1] !== undefined) {
-      // 値の中の生クォートを『』に、改行はそのまま保持
-      result[field] = m[1].replace(/"/g, "『");
+      // 値の中の生クォートを『』に置換 ＋ JSONエスケープシーケンスを本物の文字に復元
+      result[field] = unescapeJSONString(m[1].replace(/"/g, "『"));
     }
   }
 
@@ -109,12 +109,24 @@ function rescueFieldsFromBrokenJSON(text) {
     if (m && m[1] !== undefined) {
       const items = m[1].match(/"([^"]*)"/g);
       if (items) {
-        result[field] = items.map((s) => s.replace(/"/g, ""));
+        result[field] = items.map((s) => unescapeJSONString(s.replace(/"/g, "")));
       }
     }
   }
 
   return result;
+}
+
+// JSONエスケープシーケンス（\n \t \r \" \\ など）を本物の文字に復元する
+// rescue関数で正規表現抽出した文字列に対して使う
+function unescapeJSONString(str) {
+  return str
+    .replace(/\\n/g, "\n")
+    .replace(/\\r/g, "\r")
+    .replace(/\\t/g, "\t")
+    .replace(/\\"/g, '"')
+    .replace(/\\\//g, "/")
+    .replace(/\\\\/g, "\\");
 }
 
 // AIが生成したJSONを賢く修復するステートマシン
@@ -3390,7 +3402,7 @@ const AirworkOutputSection = ({ label, Icon, content, onCopy, copied, onRegenera
             opacity: isRegenerating ? 0.3 : 1,
           }}
         >
-          {content}
+          {typeof content === "string" ? content.replace(/\\n/g, "\n").replace(/\\t/g, "\t") : content}
         </pre>
         {isTitle && (
           <div className="mt-1 text-right">
@@ -4417,7 +4429,7 @@ const IndeedOutputSection = ({ label, Icon, content, onCopy, copied, isLarge, is
             opacity: isRegenerating ? 0.3 : 1,
           }}
         >
-          {content}
+          {typeof content === "string" ? content.replace(/\\n/g, "\n").replace(/\\t/g, "\t") : content}
         </pre>
         {maxLength && (
           <div className="mt-1 text-right">
