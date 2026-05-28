@@ -43,31 +43,96 @@ import {
 
 // ─────────────────────────────────────────
 // JSON自動修復ヘルパー
-// AIが生成したJSON文字列内の不正なダブルクォートを安全に修復する
+// AIが生成したJSON文字列を以下の自動修復付きでパースする：
+//  - 文字列値内の生改行/CR/タブ → \n \r \t にエスケープ
+//  - 文字列値内の半角ダブルクォート → 『』に置換
+// 戦略：ステートマシンで「JSON的に文字列値の中身」を正確に判別し、
+//       その範囲内でだけ修復を実行する
 // ─────────────────────────────────────────
 function safeParseAIJSON(rawText) {
   let c = rawText.replace(/```json\s*/g, "").replace(/```\s*/g, "").trim();
   const f = c.indexOf("{"), l = c.lastIndexOf("}");
   if (f !== -1 && l !== -1) c = c.substring(f, l + 1);
 
-  // 第1段：そのままパース試行
-  try {
+  // 第1段：そのままパース
+  try { return JSON.parse(c); } catch (e1) {}
+
+  // 第2段：賢い修復（ステートマシン）
+  const repaired = repairJSONString(c);
+  try { return JSON.parse(repaired); } catch (e2) {
+    // 失敗時は元のエラーを再現
     return JSON.parse(c);
-  } catch (e1) {
-    // 第2段：日本語に挟まれた "○○" を 『○○』 に置換
-    // JSONのキー（"key":）や値の開始/終了の " はそのまま残す
-    // ターゲット：日本語(or記号)直後の" + 日本語を含む文字列 + "直前の日本語
-    let repaired = c.replace(
-      /([\u3040-\u30FF\u4E00-\u9FFF\u3000-\u303F、。！？・「」『』])"([^"\n]*?[\u3040-\u30FF\u4E00-\u9FFF][^"\n]*?)"([\u3040-\u30FF\u4E00-\u9FFF\u3000-\u303F、。！？・「」『』])/g,
-      "$1『$2』$3"
-    );
-    try {
-      return JSON.parse(repaired);
-    } catch (e2) {
-      // 失敗したら元のエラーで失敗させる
-      throw e1;
-    }
   }
+}
+
+// AIが生成したJSONを賢く修復するステートマシン
+// 文字列値の中にいるかどうかを正確に判定し、
+// 文字列値の中だけで「内側の "」を『』に変換し、改行・タブをエスケープする
+function repairJSONString(input) {
+  let out = "";
+  let i = 0;
+  let inString = false; // 文字列値の中にいるか
+  let innerQuoteCount = 0; // 文字列値内で出現した不正クォートのカウント
+
+  while (i < input.length) {
+    const ch = input[i];
+
+    // エスケープシーケンスはそのままコピー
+    if (ch === "\\" && i + 1 < input.length) {
+      out += ch + input[i + 1];
+      i += 2;
+      continue;
+    }
+
+    // ダブルクォートの処理
+    if (ch === '"') {
+      if (!inString) {
+        // 文字列の開始
+        inString = true;
+        innerQuoteCount = 0;
+        out += ch;
+        i++;
+        continue;
+      } else {
+        // 文字列の中で " に遭遇。これが本当の終了か、内側クォートかを判定
+        // 直後（空白スキップ後）が : , } ] のいずれかなら正規の終了
+        let j = i + 1;
+        while (j < input.length && (input[j] === ' ' || input[j] === '\t' || input[j] === '\n' || input[j] === '\r')) {
+          j++;
+        }
+        const nextNon = input[j] || '';
+        if (nextNon === ':' || nextNon === ',' || nextNon === '}' || nextNon === ']') {
+          // 正規の文字列終了
+          inString = false;
+          out += ch;
+          i++;
+          continue;
+        } else {
+          // 内側クォート → ペアの順序で『と』を交互に出力
+          out += (innerQuoteCount % 2 === 0) ? '『' : '』';
+          innerQuoteCount++;
+          i++;
+          continue;
+        }
+      }
+    }
+
+    // 文字列の中での制御文字エスケープ
+    if (inString) {
+      if (ch === "\n") { out += "\\n"; i++; continue; }
+      if (ch === "\r") { out += "\\r"; i++; continue; }
+      if (ch === "\t") { out += "\\t"; i++; continue; }
+    }
+
+    out += ch;
+    i++;
+  }
+  return out;
+}
+
+// 既存呼び出しとの互換性のため残しておく（直接は使わない）
+function escapeUnescapedControlChars(jsonStr) {
+  return repairJSONString(jsonStr);
 }
 
 const DECORATION_TYPES = `
