@@ -118,6 +118,18 @@ const DARK_THEME_CSS = `
 .ms-dark .text-red-600 { color: rgb(248 113 113) !important; }
 `;
 
+// ═════════════ 全プラットフォーム統一デザイントークン ═════════════
+const UNIFIED_COLOR = {
+  ambient1: "bg-indigo-400/10",
+  ambient2: "bg-blue-400/10",
+  iconBg: "bg-indigo-600",
+  label: "text-indigo-300",
+  title: "text-indigo-400",
+  tabBorder: "border-indigo-500",
+  tabText: "text-indigo-300",
+  tabBg: "bg-indigo-900/40",
+};
+
 const CLAUDE_MODEL = "claude-opus-4-8";
 
 
@@ -2163,159 +2175,169 @@ const COLOR_PREVIEW_MAP = {
 };
 
 // 装飾型のプレビュー要素（各型の特徴を象徴するミニビジュアル）
-const DecorationPreview = React.memo(({ id }) => {
-  const previews = {
-    auto: (
-      <div className="flex items-center justify-center h-full text-[10px] text-slate-400">✨ AI選択</div>
-    ),
-    multicolor_rich: (
-      <div className="flex gap-0.5 items-center h-full px-1">
-        <div className="flex-1 h-3 bg-rose-400 rounded-sm" />
-        <div className="flex-1 h-3 bg-amber-400 rounded-sm" />
-        <div className="flex-1 h-3 bg-sky-400 rounded-sm" />
-        <div className="flex-1 h-3 bg-emerald-400 rounded-sm" />
+// ═════════════ 装飾型プレビューのJSXマップ（モジュール定数：レンダー毎の再生成防止）═════════════
+const DECORATION_PREVIEWS = {
+  auto: (
+    <div className="flex items-center justify-center h-full text-[10px] text-slate-400">✨ AI選択</div>
+  ),
+  multicolor_rich: (
+    <div className="flex gap-0.5 items-center h-full px-1">
+      <div className="flex-1 h-3 bg-rose-400 rounded-sm" />
+      <div className="flex-1 h-3 bg-amber-400 rounded-sm" />
+      <div className="flex-1 h-3 bg-sky-400 rounded-sm" />
+      <div className="flex-1 h-3 bg-emerald-400 rounded-sm" />
+    </div>
+  ),
+  multicolor_organized: (
+    <div className="flex flex-col gap-0.5 justify-center h-full px-1">
+      <div className="h-2 bg-teal-400 rounded-sm w-3/4" />
+      <div className="h-2 bg-cyan-400 rounded-sm w-full" />
+      <div className="h-2 bg-blue-400 rounded-sm w-1/2" />
+    </div>
+  ),
+  blue_trust: (
+    <div className="flex flex-col justify-center h-full px-1 gap-0.5">
+      <div className="h-2 bg-blue-600 rounded-sm w-full" />
+      <div className="h-1.5 bg-blue-200 rounded-sm w-4/5" />
+      <div className="h-1.5 bg-blue-200 rounded-sm w-3/5" />
+    </div>
+  ),
+  unified_rhythm: (
+    <div className="flex flex-col justify-center h-full px-1 gap-0.5">
+      <div className="h-1.5 bg-teal-500 rounded-sm w-full" />
+      <div className="h-1.5 bg-teal-500 rounded-sm w-full" />
+      <div className="h-1.5 bg-teal-500 rounded-sm w-full" />
+    </div>
+  ),
+  elegant_structure: (
+    <div className="flex flex-col justify-center h-full px-1 gap-0.5">
+      <div className="h-3 bg-gradient-to-r from-rose-400 via-pink-300 to-amber-200 rounded-sm w-full" />
+      <div className="h-1 bg-slate-300 rounded-sm w-2/3 mx-auto" />
+    </div>
+  ),
+  minimal_spot: (
+    <div className="flex items-center justify-center h-full gap-1">
+      <div className="w-1.5 h-1.5 bg-slate-400 rounded-full" />
+      <div className="w-1.5 h-1.5 bg-slate-400 rounded-full" />
+      <div className="w-1.5 h-1.5 bg-slate-400 rounded-full" />
+    </div>
+  ),
+  journal_magazine: (
+    <div className="flex items-center h-full px-1 gap-1">
+      <div className="text-lg font-serif italic text-slate-500 leading-none">A</div>
+      <div className="flex-1 flex flex-col gap-0.5">
+        <div className="h-1 bg-slate-400 rounded-sm w-full" />
+        <div className="h-1 bg-slate-400 rounded-sm w-4/5" />
+        <div className="h-1 bg-slate-400 rounded-sm w-3/5" />
       </div>
-    ),
-    multicolor_organized: (
-      <div className="flex flex-col gap-0.5 justify-center h-full px-1">
-        <div className="h-2 bg-teal-400 rounded-sm w-3/4" />
-        <div className="h-2 bg-cyan-400 rounded-sm w-full" />
-        <div className="h-2 bg-blue-400 rounded-sm w-1/2" />
+    </div>
+  ),
+  timeline_day: (
+    <div className="flex items-center h-full px-1 gap-0.5">
+      <div className="w-2 h-2 bg-yellow-300 rounded-full" />
+      <div className="flex-1 h-0.5 bg-slate-300" />
+      <div className="w-2 h-2 bg-orange-400 rounded-full" />
+      <div className="flex-1 h-0.5 bg-slate-300" />
+      <div className="w-2 h-2 bg-indigo-500 rounded-full" />
+    </div>
+  ),
+  data_driven: (
+    <div className="flex items-center justify-center h-full bg-slate-800 rounded px-1">
+      <div className="text-yellow-300 font-black text-lg leading-none">99%</div>
+    </div>
+  ),
+  faq_dialogue: (
+    <div className="flex flex-col justify-center h-full px-1 gap-0.5">
+      <div className="text-[9px] font-bold text-teal-600 leading-tight">Q. なぜ？</div>
+      <div className="text-[9px] text-slate-500 leading-tight">A. 理由は…</div>
+    </div>
+  ),
+  before_after: (
+    <div className="flex items-center h-full gap-0.5 px-1">
+      <div className="flex-1 h-4 bg-slate-300 rounded-sm" />
+      <div className="text-[10px]">→</div>
+      <div className="flex-1 h-4 bg-emerald-400 rounded-sm" />
+    </div>
+  ),
+  manifesto: (
+    <div className="flex items-center h-full px-1 gap-1">
+      <div className="text-2xl font-black text-teal-500 leading-none">01</div>
+      <div className="flex-1 flex flex-col gap-0.5">
+        <div className="h-1 bg-slate-400 rounded-sm w-full" />
+        <div className="h-1 bg-slate-400 rounded-sm w-3/4" />
       </div>
-    ),
-    blue_trust: (
-      <div className="flex flex-col justify-center h-full px-1 gap-0.5">
-        <div className="h-2 bg-blue-600 rounded-sm w-full" />
-        <div className="h-1.5 bg-blue-200 rounded-sm w-4/5" />
-        <div className="h-1.5 bg-blue-200 rounded-sm w-3/5" />
-      </div>
-    ),
-    unified_rhythm: (
-      <div className="flex flex-col justify-center h-full px-1 gap-0.5">
-        <div className="h-1.5 bg-teal-500 rounded-sm w-full" />
-        <div className="h-1.5 bg-teal-500 rounded-sm w-full" />
-        <div className="h-1.5 bg-teal-500 rounded-sm w-full" />
-      </div>
-    ),
-    elegant_structure: (
-      <div className="flex flex-col justify-center h-full px-1 gap-0.5">
-        <div className="h-3 bg-gradient-to-r from-rose-400 via-pink-300 to-amber-200 rounded-sm w-full" />
-        <div className="h-1 bg-slate-300 rounded-sm w-2/3 mx-auto" />
-      </div>
-    ),
-    minimal_spot: (
-      <div className="flex items-center justify-center h-full gap-1">
-        <div className="w-1.5 h-1.5 bg-slate-400 rounded-full" />
-        <div className="w-1.5 h-1.5 bg-slate-400 rounded-full" />
-        <div className="w-1.5 h-1.5 bg-slate-400 rounded-full" />
-      </div>
-    ),
-    journal_magazine: (
-      <div className="flex items-center h-full px-1 gap-1">
-        <div className="text-lg font-serif italic text-slate-500 leading-none">A</div>
-        <div className="flex-1 flex flex-col gap-0.5">
-          <div className="h-1 bg-slate-400 rounded-sm w-full" />
-          <div className="h-1 bg-slate-400 rounded-sm w-4/5" />
-          <div className="h-1 bg-slate-400 rounded-sm w-3/5" />
-        </div>
-      </div>
-    ),
-    timeline_day: (
-      <div className="flex items-center h-full px-1 gap-0.5">
-        <div className="w-2 h-2 bg-yellow-300 rounded-full" />
-        <div className="flex-1 h-0.5 bg-slate-300" />
-        <div className="w-2 h-2 bg-orange-400 rounded-full" />
-        <div className="flex-1 h-0.5 bg-slate-300" />
-        <div className="w-2 h-2 bg-indigo-500 rounded-full" />
-      </div>
-    ),
-    data_driven: (
-      <div className="flex items-center justify-center h-full bg-slate-800 rounded px-1">
-        <div className="text-yellow-300 font-black text-lg leading-none">99%</div>
-      </div>
-    ),
-    faq_dialogue: (
-      <div className="flex flex-col justify-center h-full px-1 gap-0.5">
-        <div className="text-[9px] font-bold text-teal-600 leading-tight">Q. なぜ？</div>
-        <div className="text-[9px] text-slate-500 leading-tight">A. 理由は…</div>
-      </div>
-    ),
-    before_after: (
-      <div className="flex items-center h-full gap-0.5 px-1">
-        <div className="flex-1 h-4 bg-slate-300 rounded-sm" />
-        <div className="text-[10px]">→</div>
-        <div className="flex-1 h-4 bg-emerald-400 rounded-sm" />
-      </div>
-    ),
-    manifesto: (
-      <div className="flex items-center h-full px-1 gap-1">
-        <div className="text-2xl font-black text-teal-500 leading-none">01</div>
-        <div className="flex-1 flex flex-col gap-0.5">
-          <div className="h-1 bg-slate-400 rounded-sm w-full" />
-          <div className="h-1 bg-slate-400 rounded-sm w-3/4" />
-        </div>
-      </div>
-    ),
-    minimal_typography: (
-      <div className="flex items-center justify-center h-full">
-        <div className="text-sm tracking-[0.3em] font-light text-slate-600">MINIMAL</div>
-      </div>
-    ),
-    cinematic: (
-      <div className="flex items-center justify-center h-full bg-black rounded px-1">
-        <div className="text-yellow-500 font-serif text-xs italic">Cinema</div>
-      </div>
-    ),
-    letter: (
-      <div className="flex flex-col justify-center h-full px-1 gap-0.5">
-        <div className="text-[9px] font-serif italic text-slate-500">拝啓</div>
-        <div className="h-0.5 bg-slate-400 rounded-sm w-full" />
-        <div className="h-0.5 bg-slate-400 rounded-sm w-3/4" />
-        <div className="h-0.5 bg-slate-400 rounded-sm w-1/2" />
-      </div>
-    ),
-    dashboard: (
-      <div className="grid grid-cols-3 gap-0.5 p-0.5 h-full">
-        <div className="bg-slate-700 rounded-sm" />
-        <div className="bg-slate-600 rounded-sm" />
-        <div className="bg-slate-700 rounded-sm" />
-      </div>
-    ),
-    history_timeline: (
-      <div className="flex items-center h-full px-1 gap-0.5">
-        <div className="text-[9px] font-bold text-amber-700 leading-tight">1958</div>
-        <div className="flex-1 h-0.5 bg-amber-500" />
-        <div className="text-[9px] font-bold text-amber-700 leading-tight">2025</div>
-      </div>
-    ),
-    ambient_healing: (
-      <div className="flex items-center justify-center h-full gap-1">
-        <div className="w-3 h-3 bg-pink-200 rounded-full" />
-        <div className="w-3 h-3 bg-blue-200 rounded-full" />
-        <div className="w-3 h-3 bg-purple-200 rounded-full" />
-      </div>
-    ),
-    industrial: (
-      <div className="flex items-center justify-center h-full bg-slate-700 rounded px-1 gap-0.5">
-        <div className="w-1 h-3 bg-orange-500" />
-        <div className="w-1 h-4 bg-orange-500" />
-        <div className="w-1 h-2 bg-orange-500" />
-        <div className="w-1 h-3 bg-orange-500" />
-      </div>
-    ),
-    retro_pop: (
-      <div className="flex items-center justify-center h-full gap-0.5">
-        <div className="w-3 h-3 bg-pink-400 rounded-full" />
-        <div className="w-3 h-3 bg-yellow-300 rounded-full" />
-        <div className="w-3 h-3 bg-cyan-400 rounded-full" />
-      </div>
-    ),
-    botanical: (
-      <div className="flex items-center justify-center h-full text-lg">🌿</div>
-    ),
-  };
-  return previews[id] || previews.auto;
-});
+    </div>
+  ),
+  minimal_typography: (
+    <div className="flex items-center justify-center h-full">
+      <div className="text-sm tracking-[0.3em] font-light text-slate-600">MINIMAL</div>
+    </div>
+  ),
+  cinematic: (
+    <div className="flex items-center justify-center h-full bg-black rounded px-1">
+      <div className="text-yellow-500 font-serif text-xs italic">Cinema</div>
+    </div>
+  ),
+  letter: (
+    <div className="flex flex-col justify-center h-full px-1 gap-0.5">
+      <div className="text-[9px] font-serif italic text-slate-500">拝啓</div>
+      <div className="h-0.5 bg-slate-400 rounded-sm w-full" />
+      <div className="h-0.5 bg-slate-400 rounded-sm w-3/4" />
+      <div className="h-0.5 bg-slate-400 rounded-sm w-1/2" />
+    </div>
+  ),
+  dashboard: (
+    <div className="grid grid-cols-3 gap-0.5 p-0.5 h-full">
+      <div className="bg-slate-700 rounded-sm" />
+      <div className="bg-slate-600 rounded-sm" />
+      <div className="bg-slate-700 rounded-sm" />
+    </div>
+  ),
+  history_timeline: (
+    <div className="flex items-center h-full px-1 gap-0.5">
+      <div className="text-[9px] font-bold text-amber-700 leading-tight">1958</div>
+      <div className="flex-1 h-0.5 bg-amber-500" />
+      <div className="text-[9px] font-bold text-amber-700 leading-tight">2025</div>
+    </div>
+  ),
+  ambient_healing: (
+    <div className="flex items-center justify-center h-full gap-1">
+      <div className="w-3 h-3 bg-pink-200 rounded-full" />
+      <div className="w-3 h-3 bg-blue-200 rounded-full" />
+      <div className="w-3 h-3 bg-purple-200 rounded-full" />
+    </div>
+  ),
+  industrial: (
+    <div className="flex items-center justify-center h-full bg-slate-700 rounded px-1 gap-0.5">
+      <div className="w-1 h-3 bg-orange-500" />
+      <div className="w-1 h-4 bg-orange-500" />
+      <div className="w-1 h-2 bg-orange-500" />
+      <div className="w-1 h-3 bg-orange-500" />
+    </div>
+  ),
+  retro_pop: (
+    <div className="flex items-center justify-center h-full gap-0.5">
+      <div className="w-3 h-3 bg-pink-400 rounded-full" />
+      <div className="w-3 h-3 bg-yellow-300 rounded-full" />
+      <div className="w-3 h-3 bg-cyan-400 rounded-full" />
+    </div>
+  ),
+  botanical: (
+    <div className="flex items-center justify-center h-full text-lg">🌿</div>
+  ),
+};
+
+const DecorationPreview = React.memo(({ id }) => DECORATION_PREVIEWS[id] || DECORATION_PREVIEWS.auto);
+
+// ═════════════ クロージング文サンプル（モジュール定数）═════════════
+const CLOSING_SAMPLES = {
+  auto: "AIが訴求に合わせて自動選択",
+  empathy: "「もう一度、あの日の自分に戻れる場所を。」",
+  ambition: "「頑張った分だけ、正当に評価される場所へ。」",
+  charm_recap: "「この求人の魅力を、もう一度おさらいします。」",
+  emotional: "「あなたのやさしさが、ここで誰かの支えになる。」",
+  brand: "「ここでしか出会えない、上質な時間を。」",
+};
 
 const StyleSelector = React.memo(({ decoType, setDecoType, colorTheme, setColorTheme, closingType, setClosingType }) => {
   const [expanded, setExpanded] = useState({ deco: false, color: false, closing: false });
@@ -2323,15 +2345,6 @@ const StyleSelector = React.memo(({ decoType, setDecoType, colorTheme, setColorT
   const selectedColor = COLOR_OPTIONS.find((o) => o.id === colorTheme) || COLOR_OPTIONS[0];
   const selectedClosing = CLOSING_OPTIONS.find((o) => o.id === closingType) || CLOSING_OPTIONS[0];
   const colorPreview = COLOR_PREVIEW_MAP[colorTheme] || COLOR_PREVIEW_MAP.auto;
-
-  const closingSamples = {
-    auto: "AIが訴求に合わせて自動選択",
-    empathy: "「もう一度、あの日の自分に戻れる場所を。」",
-    ambition: "「頑張った分だけ、正当に評価される場所へ。」",
-    charm_recap: "「この求人の魅力を、もう一度おさらいします。」",
-    emotional: "「あなたのやさしさが、ここで誰かの支えになる。」",
-    brand: "「ここでしか出会えない、上質な時間を。」",
-  };
 
   return (
     <div className="mb-5 p-4 bg-slate-100 border border-slate-200 rounded-lg space-y-4">
@@ -2443,7 +2456,7 @@ const StyleSelector = React.memo(({ decoType, setDecoType, colorTheme, setColorT
           </button>
         </div>
         <div className="text-[10px] text-slate-500 mb-2 bg-white border border-slate-200 rounded p-2 italic">
-          サンプル：{closingSamples[closingType] || closingSamples.auto}
+          サンプル：{CLOSING_SAMPLES[closingType] || CLOSING_SAMPLES.auto}
         </div>
         {expanded.closing && (
           <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
@@ -2459,7 +2472,7 @@ const StyleSelector = React.memo(({ decoType, setDecoType, colorTheme, setColorT
                 }
               >
                 <div className="text-[10px] font-bold text-slate-800 leading-tight mb-1">{o.label}</div>
-                <div className="text-[9px] text-slate-500 italic leading-tight">{closingSamples[o.id]}</div>
+                <div className="text-[9px] text-slate-500 italic leading-tight">{CLOSING_SAMPLES[o.id]}</div>
               </button>
             ))}
           </div>
@@ -3262,11 +3275,12 @@ const SCOUT_SYSTEM_PROMPT = `あなたはヘッドハンティング・スカウ
 
 ▼ 第3層：募集背景（ポジティブな理由・志望動機の材料）
 「おかげさまで当社は【会社の背景：業績好調／新規オープン／事業拡大 等】により、
-今回【募集職種】のポジションを新たに募集することになりました。」
+【具体的な状況・理由：新拠点オープン／対応件数急増／既存メンバーの負荷分散／新サービス立ち上げ 等】。
+そこで今回、【募集職種】のポジションを新たに募集することになりました。」
 
 ▼ 第4層：締め（相互理解の場としてCTA化）
 「つきましては、面接・面談という畏まった場ではなく、
-まずはお互いのことを知る時間をいただけないでしょうか。
+まずはお互いのことを知るお時間をいただけないでしょうか？
 
 転職は人生の大きな決断ですので、
 双方がしっかり理解し合ってから進めるのが一番だと考えております。
@@ -3293,12 +3307,23 @@ const SCOUT_SYSTEM_PROMPT = `あなたはヘッドハンティング・スカウ
    - 例：「歯科衛生士として日々患者さまと向き合っておられる方」
    - あなた宛だ、と読み手に即座に認識させることが目的
 
-★ ルール3：第3層＝募集背景は必ずポジティブに
+★ ルール3：第3層＝募集背景は「背景＋具体的な理由」の2段構成で厚みを出す
    - 「人手が足りない」「離職があった」など消極的な理由は絶対に書かない
    - 「業績好調」「事業拡大」「新規オープン」「新規事業開始」など、
      応募者が志望動機に転用できる材料をポジティブに提示
-   - ユーザーが募集背景を指定した場合はそれを優先
-   - 未指定の場合は求人原稿から適切なポジティブ背景を推測
+
+   ★★★ 重要：会社の背景を1文で終わらせず、必ず「具体的な状況・理由」を1文挟むこと ★★★
+   - 「業績好調 → だからポジションが必要」ではなく、
+     「業績好調 → 具体的にこういう状況になっている → だからこのポジションが必要」の流れで書く
+   - 業務理由の具体例：
+     ・新拠点を◯拠点オープンすることになり
+     ・対応件数が急増しており
+     ・既存メンバーの業務負荷が高まっており、質を維持するため
+     ・新サービス（○○事業／訪問事業／夜間対応 等）を立ち上げることになり
+     ・地域からの依頼が増えており、対応可能エリアを広げるため
+     ・既存拠点の体制を強化するため
+   - ユーザーが募集背景を指定した場合はそれを優先しつつ、具体的な理由を1文足す
+   - 未指定の場合は求人原稿から適切なポジティブ背景＋具体的理由を推測
 
 ★ ルール4：第4層＝面接ではなく「相互理解の場」
    - 「面接・面談という畏まった場ではなく」で心理的ハードルを下げる
@@ -6437,24 +6462,17 @@ export default function ManuscriptStudio() {
   const isIndeed = platform === "indeed";
   const isScout = platform === "scout";
 
-  // 全プラットフォーム統一デザイン（濃紺ベース・indigo系）
-  const unifiedColor = {
-    ambient1: "bg-indigo-400/10",
-    ambient2: "bg-blue-400/10",
-    iconBg: "bg-indigo-600",
-    label: "text-indigo-300",
-    title: "text-indigo-400",
-    tabBorder: "border-indigo-500",
-    tabText: "text-indigo-300",
-    tabBg: "bg-indigo-900/40",
-  };
-  const colorMap = {
-    jobmedley: unifiedColor,
-    airwork: unifiedColor,
-    indeed: unifiedColor,
-    scout: unifiedColor,
-  };
-  const c = colorMap[platform];
+  // プラットフォーム切替（useCallback化：毎レンダーの関数再生成を防止）
+  const handlePlatformSwitch = useCallback((pid) => {
+    setPlatform(pid);
+    if (pid === "jobmedley") setTab("new");
+    else if (pid === "airwork") setTab("airwork_main");
+    else if (pid === "indeed") setTab("indeed_main");
+    else if (pid === "scout") setTab("scout_main");
+  }, []);
+
+  // 全プラットフォーム統一デザイン（メモ化：レンダー毎の再生成防止）
+  const c = UNIFIED_COLOR;
 
   return (
     <div
@@ -6548,21 +6566,14 @@ export default function ManuscriptStudio() {
           <div className="flex gap-0 border-b-2 border-slate-200 overflow-x-auto">
             {PLATFORMS.map((p) => {
               const active = platform === p.id;
-              const pc = colorMap[p.id];
               return (
                 <button
                   key={p.id}
-                  onClick={() => {
-                    setPlatform(p.id);
-                    if (p.id === "jobmedley") setTab("new");
-                    else if (p.id === "airwork") setTab("airwork_main");
-                    else if (p.id === "indeed") setTab("indeed_main");
-                    else if (p.id === "scout") setTab("scout_main");
-                  }}
+                  onClick={() => handlePlatformSwitch(p.id)}
                   className={
                     "flex items-center gap-2 px-5 md:px-7 py-3 text-sm md:text-base font-bold transition border-b-4 -mb-0.5 whitespace-nowrap " +
                     (active
-                      ? `${pc.tabBorder} ${pc.tabText} ${pc.tabBg}`
+                      ? `${UNIFIED_COLOR.tabBorder} ${UNIFIED_COLOR.tabText} ${UNIFIED_COLOR.tabBg}`
                       : "border-transparent text-slate-400 hover:text-slate-600")
                   }
                 >
