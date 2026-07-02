@@ -3359,11 +3359,123 @@ const SCOUT_SYSTEM_PROMPT = `あなたはヘッドハンティング・スカウ
 本文内の改行は \\n でエスケープしてください。
 本文内で半角ダブルクォート " は使わず、日本語の「」『』を使ってください。`;
 
+/* =========================================================================
+   スカウトメール生成【ジョブメドレー用】
+   件名なし・本文1本・適度な絵文字・カジュアル面談CTA
+   ========================================================================= */
+
+const JOBMEDLEY_SCOUT_SYSTEM_PROMPT = `あなたはジョブメドレーのスカウトメール作成のプロです。
+求人原稿の情報を元に、ジョブメドレー特有の「本文1本完結型」スカウトメールを生成してください。
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+【ジョブメドレー用スカウトの特殊仕様】
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+★ 件名は存在しません（ジョブメドレー仕様）
+★ 本文冒頭に「🙇ご相談です。」を配置（これが件名相当）
+★ 適度な絵文字を各段落末尾に配置（✨😊📝🙇）
+★ 過剰な絵文字はNG。1段落に1つ程度。
+★ 面接・面談ではなく「カジュアルな面談や見学」の表現
+★ 「ざっくばらんに」「双方に」など親しみやすい表現を使う
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+【本文構成（8段落・順序厳守）】
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+▼ 第1段落：件名代わりの冒頭
+「🙇ご相談です。」
+
+▼ 第2段落：差出人挨拶
+「【会社名】【役職】の【差出人名】と申します✨」
+※役職の例：代表取締役 / 専務取締役 / 常務取締役 / 採用責任者 / 採用担当 など
+
+▼ 第3段落：ターゲット明示
+「【ターゲット属性：職種・経験・資格などの具体表現】として
+【日々の業務内容を1文で表現】に向き合っておられる方に、
+ぜひ知っていただきたく、今回ご連絡いたしました😊」
+
+▼ 第4段落：募集背景（背景＋具体的理由の2段構成）
+「おかげさまで当社は【会社の背景：業績好調／新規オープン／事業拡大 等】に伴い、
+【具体的な状況・理由：新拠点オープン／対応件数急増／地域からの依頼増加 等】。
+そこで今回、【募集職種】のポジションを新たに募集することになりました✨」
+
+▼ 第5段落：職場の魅力
+「【未経験者へのサポート体制 or ベテランの指導体制 or 職場環境】、
+【休日・待遇・働きやすさなど求人原稿の魅力ポイントを1〜2つ】と、
+長く腰を据えて働ける環境づくりにも力を入れております📝」
+
+▼ 第6段落：カジュアル面談CTA
+「つきましては、まずはカジュアルな面談や見学等でも構いませんので、
+双方にざっくばらんにお話しができる場を頂けると嬉しいです😊」
+
+▼ 第7段落：具体的な提案
+「ご都合の良い日時に、まずは30分ほど、お話しできればと思います！✨」
+
+▼ 第8段落：締め
+「何卒、ご検討の程、宜しくお願い致します✨」
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+【参考例文（実際にこの構成・トーンで作る）】
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+🙇ご相談です。
+
+居宅介護支援事業所・スタートライン 採用責任者の中嶋と申します✨
+
+ケアマネジャー（介護支援専門員）の資格をお持ちで、
+地域の方々の暮らしを支えるお仕事に日々向き合っておられる方に、ぜひ知っていただきたく、今回ご連絡いたしました😊
+
+おかげさまで当社は事業拡大に伴い、
+川越市を中心に地域の皆さまからのご相談・ご依頼が着実に増えており、
+住み慣れた自宅で安心して暮らしたいというご利用者様お一人おひとりに、
+より丁寧に寄り添える体制を整えていく必要が出てまいりました。そこで今回、
+居宅ケアマネジャーのポジションを新たに募集することになりました✨
+
+未経験の方にはベテラン主任ケアマネによる丁寧な指導体制を整えており、
+土日祝休み・年間休日125日と、長く腰を据えて働ける環境づくりにも力を入れております📝
+
+つきましては、まずはカジュアルな面談や見学等でも構いませんので、
+双方にざっくばらんにお話しができる場を頂けると嬉しいです😊
+
+ご都合の良い日時に、まずは30分ほど、お話しできればと思います！✨
+
+何卒、ご検討の程、宜しくお願い致します✨
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+【絶対厳守ルール】
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+★ ルール1：件名は生成しない（本文1本のみ）
+★ ルール2：本文冒頭は「🙇ご相談です。」で必ず始める
+★ ルール3：8段落構成を厳守。順序を変えない
+★ ルール4：絵文字は各段落末尾に1つ程度。過剰装飾NG
+★ ルール5：使う絵文字は主に ✨ 😊 📝 🙇 に限る。派手な絵文字（🎉🌸💝等）は使わない
+★ ルール6：募集背景は「業績好調→具体的理由→そこで今回」の3段流れを守る
+★ ルール7：一括送信前提のため「ご経歴を拝見し」等の個別プロフィール精読を匂わせる書き出しは禁止
+★ ルール8：CTAは「面接」ではなく「カジュアルな面談や見学」の表現を使う
+★ ルール9：「ざっくばらんに」「双方に」など親しみやすさを演出する表現を使う
+★ ルール10：段落間は1行空ける（読みやすさ確保）
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+【出力フォーマット】
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+以下のJSON形式のみで返してください（説明文・コードブロック不要）：
+
+{
+  "body": "スカウトメール本文全体（8段落構成・件名なし・絵文字あり）"
+}
+
+本文内の改行は \\n でエスケープしてください。
+段落間は \\n\\n（空行）を入れてください。
+本文内で半角ダブルクォート " は使わず、日本語の「」『』を使ってください。`;
+
 const ScoutMailStudio = React.memo(() => {
   const [pasteContent, setPasteContent] = useState("");
   const [senderPosition, setSenderPosition] = useState("");
   const [senderName, setSenderName] = useState("");
   const [recruitBackground, setRecruitBackground] = useState("");
+  const [scoutMode, setScoutMode] = useState("jobmedley"); // "jobmedley" | "other"
   const [output, setOutput] = useState(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
@@ -3386,25 +3498,29 @@ const ScoutMailStudio = React.memo(() => {
     }
     setLoading(true);
     try {
-      const userContent = `以下の求人原稿から、差出人名義のスカウトメールを4層構造で生成してください。
+      const isJobmedley = scoutMode === "jobmedley";
+      const userContent = `以下の求人原稿から、${isJobmedley ? "ジョブメドレー用の本文1本完結型スカウトメール" : "差出人名義のスカウトメール"}を生成してください。
 
 【求人原稿】
 ${pasteContent}
 
-【差出人の役職（第1層で使用）】
+【差出人の役職】
 ${senderPosition}
 
-【差出人の名前（第1層で使用）】
+【差出人の名前】
 ${senderName}
 
-${recruitBackground.trim() ? `【募集背景の指定（第3層で使用・必ずポジティブに変換）】
+${recruitBackground.trim() ? `【募集背景の指定（必ずポジティブに変換）】
 ${recruitBackground}
 ` : `【募集背景の指定】
 なし（求人原稿から適切なポジティブ背景を推測してください。例：業績好調、事業拡大、新規オープンなど）
 `}
 ${buildNotionKnowledgeSection()}
 
-上記情報を元に、4層構造のスカウトメールをJSON形式で返してください。`;
+${isJobmedley
+  ? "上記情報を元に、ジョブメドレー用スカウトメール（8段落構成・件名なし・本文1本・適度な絵文字✨😊📝🙇）をJSON形式で返してください。"
+  : "上記情報を元に、4層構造のスカウトメール（件名＋本文）をJSON形式で返してください。"
+}`;
 
       const res = await fetch("/api/claude", {
         method: "POST",
@@ -3412,7 +3528,7 @@ ${buildNotionKnowledgeSection()}
         body: JSON.stringify({
           model: CLAUDE_MODEL,
           max_tokens: 2000,
-          system: SCOUT_SYSTEM_PROMPT,
+          system: isJobmedley ? JOBMEDLEY_SCOUT_SYSTEM_PROMPT : SCOUT_SYSTEM_PROMPT,
           messages: [{ role: "user", content: userContent }],
         }),
       });
@@ -3423,7 +3539,7 @@ ${buildNotionKnowledgeSection()}
         .map((i) => i.text)
         .join("\n");
       const parsed = safeParseAIJSON(text);
-      setOutput(parsed);
+      setOutput({ ...parsed, __mode: scoutMode });
     } catch (e) {
       setError("生成エラー: " + e.message);
     } finally {
@@ -3444,7 +3560,38 @@ ${buildNotionKnowledgeSection()}
   return (
     <div className="space-y-6">
       <div className="bg-amber-50 border border-amber-200 rounded-lg p-3 text-sm text-amber-900">
-        📮 求人原稿と差出人（役職＋名前）を入力すると、<b className="text-amber-700">差出人名義の4層構造スカウトメール</b>を生成します。件名は<b>「ご相談です。」</b>で固定です。会社名・ターゲット属性・募集職種は求人原稿から自動抽出されます。
+        📮 求人原稿と差出人を入力すると、<b className="text-amber-700">スカウトメール</b>を生成します。会社名・ターゲット属性・募集職種は求人原稿から自動抽出されます。
+      </div>
+
+      {/* Step 0：モード選択 */}
+      <div>
+        <div className="text-xs uppercase mb-2 text-amber-700 tracking-widest font-bold">Step 0 · 送信先媒体</div>
+        <div className="grid grid-cols-2 gap-2">
+          <button
+            onClick={() => setScoutMode("jobmedley")}
+            className={
+              "border rounded-lg p-3 text-left transition " +
+              (scoutMode === "jobmedley"
+                ? "border-amber-600 bg-amber-50 ring-2 ring-amber-200"
+                : "border-slate-200 bg-white hover:border-slate-300")
+            }
+          >
+            <div className="text-sm font-bold text-slate-900">📱 ジョブメドレー</div>
+            <div className="text-[10px] text-slate-500 mt-0.5">件名なし・本文1本・適度な絵文字</div>
+          </button>
+          <button
+            onClick={() => setScoutMode("other")}
+            className={
+              "border rounded-lg p-3 text-left transition " +
+              (scoutMode === "other"
+                ? "border-amber-600 bg-amber-50 ring-2 ring-amber-200"
+                : "border-slate-200 bg-white hover:border-slate-300")
+            }
+          >
+            <div className="text-sm font-bold text-slate-900">✉️ その他媒体</div>
+            <div className="text-[10px] text-slate-500 mt-0.5">件名「ご相談です。」＋本文（4層構造）</div>
+          </button>
+        </div>
       </div>
 
       <div>
@@ -3527,26 +3674,32 @@ ${buildNotionKnowledgeSection()}
       {output && (
         <div className="space-y-4">
           <div className="border-t border-slate-200 pt-4">
-            <div className="text-xs uppercase mb-3 text-amber-700 tracking-widest font-bold">生成結果</div>
-
-            <div className="mb-4">
-              <div className="flex items-center justify-between mb-1">
-                <label className="text-xs font-bold text-slate-700">📧 件名</label>
-                <button
-                  onClick={() => copyField("subject", output.subject || "ご相談です。")}
-                  className="text-xs px-2 py-1 border border-slate-300 rounded hover:bg-slate-50 transition"
-                >
-                  {copiedKey === "subject" ? "✓ コピー済" : "コピー"}
-                </button>
-              </div>
-              <div className="px-3 py-2 border border-slate-200 rounded bg-slate-50 text-sm text-slate-900">
-                {output.subject || "ご相談です。"}
-              </div>
+            <div className="text-xs uppercase mb-3 text-amber-700 tracking-widest font-bold">
+              生成結果 <span className="text-slate-500 normal-case tracking-normal ml-2">・ {output.__mode === "jobmedley" ? "ジョブメドレー用（本文1本）" : "その他媒体用（件名＋本文）"}</span>
             </div>
+
+            {output.__mode !== "jobmedley" && (
+              <div className="mb-4">
+                <div className="flex items-center justify-between mb-1">
+                  <label className="text-xs font-bold text-slate-700">📧 件名</label>
+                  <button
+                    onClick={() => copyField("subject", output.subject || "ご相談です。")}
+                    className="text-xs px-2 py-1 border border-slate-300 rounded hover:bg-slate-50 transition"
+                  >
+                    {copiedKey === "subject" ? "✓ コピー済" : "コピー"}
+                  </button>
+                </div>
+                <div className="px-3 py-2 border border-slate-200 rounded bg-slate-50 text-sm text-slate-900">
+                  {output.subject || "ご相談です。"}
+                </div>
+              </div>
+            )}
 
             <div>
               <div className="flex items-center justify-between mb-1">
-                <label className="text-xs font-bold text-slate-700">✉️ 本文</label>
+                <label className="text-xs font-bold text-slate-700">
+                  {output.__mode === "jobmedley" ? "📱 スカウト文（そのままジョブメドレーに貼り付け）" : "✉️ 本文"}
+                </label>
                 <button
                   onClick={() => copyField("body", output.body || "")}
                   className="text-xs px-2 py-1 border border-slate-300 rounded hover:bg-slate-50 transition"
