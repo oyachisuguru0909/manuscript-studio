@@ -6116,6 +6116,439 @@ JSON形式のみで返してください: {"${section}": "..."}`;
 });
 
 
+
+/* =========================================================================
+   engage（エンゲージ）用原稿生成
+   ========================================================================= */
+
+const ENGAGE_SYSTEM_PROMPT = `あなたはengage（エンゲージ、株式会社エン・ジャパン運営）の管理画面に直接入力する求人原稿を作成する専門ライターです。
+提供された求人情報を元に、engage管理画面の各入力フィールドに対応した原稿をJSON形式で生成してください。
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+【engageの特徴と原稿の方針】
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+★ engageは無料求人サイト＋自社採用ページ機能を提供する媒体
+★ 求職者は幅広い年齢層。転職者・第二新卒・シニアなど多様
+★ 職種検索SEOで流入するため、職種名にはキーワードを含める
+★ 表示用職種名では魅力的なキャッチを付けて応募動機を刺激
+★ 仕事内容は具体的で、業務内容がイメージできる書き方に
+★ 事業内容は会社の全体像がわかるように
+★ 応募資格・条件は差別表記を避け、法令遵守
+★ 「35歳まで」「20代歓迎」「年齢不問」「女性歓迎」「性別不問」「日本人のみ」「国籍不問」等の表現は禁止
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+【生成する各フィールド】
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+1. jobTitle（職種）: 最大50文字。SEO重視のキーワード含む職種名。記号・スペース・アピールポイントは含めない
+   例: 「営業スタッフ」「システムエンジニア」「介護スタッフ」
+
+2. displayJobTitle（表示用職種名）: 応募動機を刺激するキャッチ付き
+   例: 「未経験歓迎！印刷会社の営業サポート！」
+
+3. jobDescription（仕事内容）: 最大700文字。具体的な業務内容を丁寧に説明
+   - 「あなたにお任せするのは...」で始めるパターン推奨
+   - 具体的な業務・1日の流れ・成長機会も含める
+
+4. businessDescription（事業内容）: 最大400文字。会社の全体像がわかる説明
+
+5. workLocationNote（勤務地備考）: 任意。転勤の有無・アクセスなど。最大400文字
+
+6. accessInfo（アクセス）: 任意。最寄り駅からの徒歩時間など。最大400文字
+
+7. salaryNote（給与備考）: 任意。経験・能力を考慮など。最大400文字
+
+8. workHoursNote（勤務時間備考）: 任意。実働・休憩・残業時間など。最大150文字
+
+9. requirementsNote（その他必要な経験・資格）: 任意。応募資格の詳細
+
+10. recruitBackgroundNote（募集人数・募集背景）: 任意。最大300文字。ポジティブに
+    例: 「業績好調につき、10名以上の増員を計画しています」
+
+11. holidayNote（休日休暇）: 任意。最大300文字。年間休日・特別休暇など
+
+12. benefitsNote（待遇・福利厚生）: 任意。最大400文字。手当・支援制度など
+
+13. selectionSteps（選考プロセス）: 配列。各ステップ最大100文字。3〜5ステップが標準
+    例: ["書類選考", "一次面接（現場担当者）", "最終面接（役員）", "内定"]
+
+14. selectionNote（選考プロセス備考）: 任意。最大500文字。内定までの期間目安など
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+【出力フォーマット】
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+以下のJSON形式のみで返してください（説明文・コードブロック不要）：
+
+{
+  "jobTitle": "...",
+  "displayJobTitle": "...",
+  "jobDescription": "...",
+  "businessDescription": "...",
+  "workLocationNote": "...",
+  "accessInfo": "...",
+  "salaryNote": "...",
+  "workHoursNote": "...",
+  "requirementsNote": "...",
+  "recruitBackgroundNote": "...",
+  "holidayNote": "...",
+  "benefitsNote": "...",
+  "selectionSteps": ["...", "...", "..."],
+  "selectionNote": "..."
+}
+
+各値内の改行は \\n でエスケープ。半角ダブルクォート " は使わず、日本語の「」『』を使ってください。`;
+
+const ENGAGE_FIELD_LABELS = {
+  jobTitle: { label: "職種", max: 50, isArray: false },
+  displayJobTitle: { label: "表示用職種名", max: 50, isArray: false },
+  jobDescription: { label: "仕事内容", max: 700, isArray: false },
+  businessDescription: { label: "事業内容", max: 400, isArray: false },
+  workLocationNote: { label: "勤務地備考", max: 400, isArray: false },
+  accessInfo: { label: "アクセス", max: 400, isArray: false },
+  salaryNote: { label: "給与備考", max: 400, isArray: false },
+  workHoursNote: { label: "勤務時間備考", max: 150, isArray: false },
+  requirementsNote: { label: "その他必要な経験・資格", max: 300, isArray: false },
+  recruitBackgroundNote: { label: "募集人数・募集背景", max: 300, isArray: false },
+  holidayNote: { label: "休日休暇", max: 300, isArray: false },
+  benefitsNote: { label: "待遇・福利厚生", max: 400, isArray: false },
+  selectionSteps: { label: "選考プロセス", max: 100, isArray: true },
+  selectionNote: { label: "選考プロセス備考", max: 500, isArray: false },
+};
+
+async function callEngageAPI(systemPrompt, userContent) {
+  const res = await fetch("/api/claude", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      model: CLAUDE_MODEL,
+      max_tokens: 4000,
+      system: systemPrompt,
+      messages: [{ role: "user", content: userContent }],
+    }),
+  });
+  if (!res.ok) throw new Error("APIエラー: " + res.status);
+  const data = await res.json();
+  const text = data.content.filter((i) => i.type === "text").map((i) => i.text).join("\n");
+  return safeParseAIJSON(text);
+}
+
+const EngageStudio = React.memo(() => {
+  const [mode, setMode] = useState("paste");
+  const [pasteContent, setPasteContent] = useState("");
+  const [formData, setFormData] = useState({
+    companyName: "",
+    jobTitle: "",
+    employmentType: "正社員",
+    industry: "",
+    salary: "",
+    location: "",
+    workHours: "",
+    holidays: "",
+    benefits: "",
+    jobDescription: "",
+    requirements: "",
+    notes: "",
+  });
+  const [output, setOutput] = useState(null);
+  const [loading, setLoading] = useState(false);
+  const [sectionLoading, setSectionLoading] = useState(null);
+  const [error, setError] = useState(null);
+  const [copiedKey, setCopiedKey] = useState(null);
+
+  const [volume, setVolume] = useState("normal");
+  const [extraContext, setExtraContext] = useState({
+    freeInstruction: "",
+    meetingNotes: "",
+    referenceUrls: [""],
+  });
+
+  const buildUserContent = () => {
+    const extra = buildExtraContextSection(extraContext);
+    const vol = getVolumeInstruction(volume);
+    const notion = buildNotionKnowledgeSection();
+    if (mode === "paste") {
+      return `以下の求人情報からengage管理画面用の原稿を作成してください。\n\n${pasteContent}\n${extra}\n${notion}\n${vol}\n\n上記情報を元に、engage管理画面に入力する各フィールドの内容をJSON形式で返してください。`;
+    }
+    return `以下の求人情報からengage管理画面用の原稿を作成してください。\n\n【会社名】${formData.companyName || "（未入力）"}\n【職種】${formData.jobTitle || "（未入力）"}\n【雇用形態】${formData.employmentType}\n【業界】${formData.industry || "（未入力）"}\n【給与】${formData.salary || "（未入力）"}\n【勤務地】${formData.location || "（未入力）"}\n【勤務時間】${formData.workHours || "（未入力）"}\n【休日】${formData.holidays || "（未入力）"}\n【福利厚生】${formData.benefits || "（未入力）"}\n【仕事内容】${formData.jobDescription || "（未入力）"}\n【応募要件】${formData.requirements || "（未入力）"}\n【その他メモ】${formData.notes || "（未入力）"}\n${extra}\n${notion}\n${vol}\n\n上記情報を元に、engage管理画面に入力する各フィールドの内容をJSON形式で返してください。`;
+  };
+
+  const generate = async () => {
+    if (mode === "paste" && !pasteContent.trim()) {
+      setError("情報を貼り付けてください");
+      return;
+    }
+    if (mode === "form" && !formData.jobTitle.trim()) {
+      setError("職種を入力してください");
+      return;
+    }
+    setLoading(true);
+    setError(null);
+    setOutput(null);
+    try {
+      const res = await callEngageAPI(ENGAGE_SYSTEM_PROMPT, buildUserContent());
+      setOutput(res);
+    } catch (e) {
+      setError("生成エラー: " + e.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const regenerateSection = async (field, instruction = "") => {
+    setSectionLoading(field);
+    setError(null);
+    try {
+      const cfg = ENGAGE_FIELD_LABELS[field];
+      const others = Object.entries(output || {})
+        .filter(([k]) => k !== field && ENGAGE_FIELD_LABELS[k])
+        .map(([k, v]) => `${ENGAGE_FIELD_LABELS[k].label}: ${Array.isArray(v) ? v.join(",") : String(v).slice(0, 200)}`)
+        .join("\n");
+      const revisionPart = instruction
+        ? `\n\n【★修正指示（最優先で反映）★】\n${instruction}\n\n【現在の${cfg.label}】\n${Array.isArray(output[field]) ? output[field].join(",") : output[field] || ""}\n\n上記の修正指示を反映して改善してください。`
+        : `\n\n【再生成】現在の内容を別パターンで再生成してください。`;
+      const prompt = `${ENGAGE_SYSTEM_PROMPT}\n\n【元の入力情報】\n${buildUserContent()}\n\n【他の既存セクション（参考）】\n${others}\n${revisionPart}\n\n「${cfg.label}」のみを改善してください。\n\nJSON形式のみ:\n${cfg.isArray ? `{"${field}":["..."]}` : `{"${field}":"..."}`}`;
+      const res = await callEngageAPI(ENGAGE_SYSTEM_PROMPT, prompt);
+      if (res && res[field] !== undefined) {
+        setOutput({ ...output, [field]: res[field] });
+      }
+    } catch (e) {
+      setError("再生成エラー: " + e.message);
+    } finally {
+      setSectionLoading(null);
+    }
+  };
+
+  const copyField = async (key, value) => {
+    try {
+      const text = Array.isArray(value) ? value.join("\n") : String(value);
+      await navigator.clipboard.writeText(text);
+      setCopiedKey(key);
+      setTimeout(() => setCopiedKey(null), 1500);
+    } catch (e) {
+      setError("コピー失敗");
+    }
+  };
+
+  return (
+    <div className="space-y-6">
+      <div className="bg-emerald-50 border border-emerald-200 rounded-lg p-3 text-sm text-emerald-900">
+        📋 <b className="text-emerald-700">engage（エン・ジャパン運営）</b>の管理画面に対応した求人原稿を生成します。職種・仕事内容・事業内容・給与・待遇・選考プロセスなど、管理画面の全フィールドを一括生成。
+      </div>
+
+      {/* モード切替 */}
+      <div className="flex gap-2 p-1 bg-slate-100 rounded-lg">
+        <button
+          onClick={() => setMode("paste")}
+          className={"flex-1 py-2 px-4 rounded text-sm font-bold transition " + (mode === "paste" ? "bg-emerald-600 text-white" : "text-slate-600 hover:text-slate-800")}
+        >
+          原稿ペースト
+        </button>
+        <button
+          onClick={() => setMode("form")}
+          className={"flex-1 py-2 px-4 rounded text-sm font-bold transition " + (mode === "form" ? "bg-emerald-600 text-white" : "text-slate-600 hover:text-slate-800")}
+        >
+          フォーム入力
+        </button>
+      </div>
+
+      {/* 入力欄 */}
+      <div className="mb-4">
+        {mode === "paste" ? (
+          <textarea
+            value={pasteContent}
+            onChange={(e) => setPasteContent(e.target.value)}
+            placeholder="既存の求人原稿、募集要項、事業所情報などを貼り付けてください"
+            rows={10}
+            className="w-full px-3 py-2 border border-slate-200 rounded-lg bg-white text-sm focus:outline-none focus:border-emerald-500 resize-none text-slate-900"
+            style={{ lineHeight: 1.6 }}
+          />
+        ) : (
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+            {[
+              ["companyName", "会社名"],
+              ["jobTitle", "職種"],
+              ["industry", "業界"],
+              ["salary", "給与"],
+              ["location", "勤務地"],
+              ["workHours", "勤務時間"],
+              ["holidays", "休日"],
+              ["benefits", "福利厚生"],
+            ].map(([k, label]) => (
+              <div key={k}>
+                <label className="text-xs font-semibold text-slate-600 mb-1 block">{label}</label>
+                <input
+                  type="text"
+                  value={formData[k]}
+                  onChange={(e) => setFormData({ ...formData, [k]: e.target.value })}
+                  placeholder={label}
+                  className="w-full px-3 py-2 border border-slate-200 rounded bg-white text-sm focus:outline-none focus:border-emerald-500 text-slate-900"
+                />
+              </div>
+            ))}
+            {[
+              ["jobDescription", "仕事内容"],
+              ["requirements", "応募要件"],
+              ["notes", "その他メモ"],
+            ].map(([k, label]) => (
+              <div key={k} className="md:col-span-2">
+                <label className="text-xs font-semibold text-slate-600 mb-1 block">{label}</label>
+                <textarea
+                  value={formData[k]}
+                  onChange={(e) => setFormData({ ...formData, [k]: e.target.value })}
+                  rows={3}
+                  className="w-full px-3 py-2 border border-slate-200 rounded bg-white text-sm focus:outline-none focus:border-emerald-500 resize-none text-slate-900"
+                />
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+
+      {/* 追加情報 */}
+      <div className="mb-4">
+        <div className="text-xs uppercase mb-2 text-emerald-700 tracking-widest font-bold">追加情報（任意）</div>
+        <div className="space-y-3 bg-slate-50 border border-slate-200 rounded-lg p-3">
+          <div>
+            <label className="block text-xs mb-1 text-slate-600 font-semibold">📝 補足指示・要望</label>
+            <textarea
+              value={extraContext.freeInstruction}
+              onChange={(e) => setExtraContext({ ...extraContext, freeInstruction: e.target.value })}
+              placeholder="例：若手向けに親しみやすく／成長環境を強調 など"
+              rows={2}
+              className="w-full px-3 py-2 border border-slate-200 rounded bg-white text-sm focus:outline-none focus:border-emerald-500 resize-none text-slate-900"
+            />
+          </div>
+          <div>
+            <label className="block text-xs mb-1 text-slate-600 font-semibold">📋 ヒアリング議事録・取材メモ</label>
+            <textarea
+              value={extraContext.meetingNotes}
+              onChange={(e) => setExtraContext({ ...extraContext, meetingNotes: e.target.value })}
+              placeholder="商談・ヒアリングで聞いた会社の特徴などを貼り付け"
+              rows={3}
+              className="w-full px-3 py-2 border border-slate-200 rounded bg-white text-sm focus:outline-none focus:border-emerald-500 resize-none text-slate-900"
+            />
+          </div>
+          <div>
+            <label className="block text-xs mb-1 text-slate-600 font-semibold">🔗 参考URL</label>
+            <div className="space-y-2">
+              {extraContext.referenceUrls.map((url, idx) => (
+                <div key={idx} className="flex gap-2">
+                  <input
+                    type="url"
+                    value={url}
+                    onChange={(e) => {
+                      const next = [...extraContext.referenceUrls];
+                      next[idx] = e.target.value;
+                      setExtraContext({ ...extraContext, referenceUrls: next });
+                    }}
+                    placeholder="https://example.com"
+                    className="flex-1 px-3 py-2 border border-slate-200 rounded bg-white text-sm focus:outline-none focus:border-emerald-500 text-slate-900"
+                  />
+                  {extraContext.referenceUrls.length > 1 && (
+                    <button
+                      onClick={() => setExtraContext({ ...extraContext, referenceUrls: extraContext.referenceUrls.filter((_, i) => i !== idx) })}
+                      className="px-3 py-2 text-xs text-red-600 border border-red-200 rounded hover:bg-red-50"
+                    >
+                      削除
+                    </button>
+                  )}
+                </div>
+              ))}
+              <button
+                onClick={() => setExtraContext({ ...extraContext, referenceUrls: [...extraContext.referenceUrls, ""] })}
+                className="text-xs px-3 py-1.5 border border-slate-300 rounded text-slate-600 hover:bg-slate-100"
+              >
+                ＋ URLを追加
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* 文字量 */}
+      <div className="mb-4">
+        <div className="text-xs uppercase mb-2 text-emerald-700 tracking-widest font-bold">文字量</div>
+        <div className="grid grid-cols-3 gap-2">
+          {Object.entries(VOLUME_LEVELS).map(([k, v]) => (
+            <button
+              key={k}
+              onClick={() => setVolume(k)}
+              className={"border rounded-lg p-3 text-center transition " + (volume === k ? "border-emerald-600 bg-emerald-600 text-white" : "border-slate-200 bg-white hover:border-slate-300")}
+            >
+              <div className="text-sm font-bold">{v.label}</div>
+              <div className={"text-[10px] mt-0.5 " + (volume === k ? "text-emerald-100" : "text-slate-500")}>{v.desc}</div>
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {error && (
+        <div className="flex items-start gap-2 bg-red-50 border border-red-300 rounded-lg p-3 text-sm text-red-700">
+          <AlertCircle className="w-4 h-4 mt-0.5 flex-shrink-0" />
+          <div className="whitespace-pre-wrap break-all">{error}</div>
+        </div>
+      )}
+
+      <button
+        onClick={generate}
+        disabled={loading}
+        className="w-full py-3 bg-emerald-600 text-white font-bold rounded-lg hover:bg-emerald-700 disabled:opacity-50 disabled:cursor-not-allowed transition flex items-center justify-center gap-2"
+      >
+        {loading ? <><Loader2 className="w-4 h-4 animate-spin" />engage原稿を生成中...</> : <><Feather className="w-4 h-4" />engage原稿を生成</>}
+      </button>
+
+      {/* 出力 */}
+      {output && (
+        <div className="space-y-4">
+          <div className="border-t border-slate-200 pt-4">
+            <div className="text-sm text-slate-600 font-semibold mb-3">生成結果（各フィールドをengage管理画面に貼り付け）</div>
+            {Object.entries(ENGAGE_FIELD_LABELS).map(([field, cfg]) => {
+              const value = output[field];
+              if (value === undefined || value === null || value === "") return null;
+              const displayValue = Array.isArray(value) ? value.map((v, i) => `${i + 1}. ${v}`).join("\n") : String(value).replace(/\\n/g, "\n");
+              const length = Array.isArray(value) ? value.join("").length : String(value).length;
+              const isOver = length > cfg.max * (Array.isArray(value) ? value.length : 1);
+              return (
+                <div key={field} className="mb-4">
+                  <div className="flex items-center justify-between mb-1">
+                    <label className="text-xs font-bold text-slate-700">{cfg.label}</label>
+                    <div className="flex items-center gap-2">
+                      <button
+                        onClick={() => regenerateSection(field)}
+                        disabled={sectionLoading === field}
+                        className="text-xs px-2 py-1 border border-slate-300 rounded hover:bg-slate-50 transition disabled:opacity-50"
+                      >
+                        {sectionLoading === field ? "再生成中..." : "🔄 再生成"}
+                      </button>
+                      <button
+                        onClick={() => copyField(field, value)}
+                        className="text-xs px-2 py-1 border border-slate-300 rounded hover:bg-slate-50 transition"
+                      >
+                        {copiedKey === field ? "✓ コピー済" : "コピー"}
+                      </button>
+                    </div>
+                  </div>
+                  <pre
+                    className="px-3 py-2 border border-slate-200 rounded bg-slate-50 text-sm text-slate-900 whitespace-pre-wrap break-words font-sans"
+                    style={{ lineHeight: 1.6 }}
+                  >
+                    {typeof displayValue === "string" ? displayValue.replace(/\\n/g, "\n").replace(/\\t/g, "\t") : displayValue}
+                  </pre>
+                  <div className="text-right text-[10px] text-slate-500 mt-0.5">
+                    {length}文字 {cfg.max ? `/ ${cfg.max}文字` : ""} {isOver && <span className="text-red-600 font-bold">超過</span>}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+});
+
 /* =========================================================================
    【通勤圏エリア抽出】事業所住所＋エリア一覧→30/45/60分圏内のエリア抽出
    ========================================================================= */
@@ -6487,6 +6920,13 @@ const PLATFORMS = [
     accentColor: "sky",
   },
   {
+    id: "engage",
+    label: "engage",
+    sublabel: "エン・ジャパン運営",
+    description: "engage管理画面用。職種・仕事内容・事業内容・給与・待遇など全フィールドを一括生成",
+    accentColor: "emerald",
+  },
+  {
     id: "scout",
     label: "スカウトメール",
     sublabel: "医療・福祉・美容系",
@@ -6613,6 +7053,7 @@ export default function ManuscriptStudio() {
   const isJobMedley = platform === "jobmedley";
   const isAirwork = platform === "airwork";
   const isIndeed = platform === "indeed";
+  const isEngage = platform === "engage";
   const isScout = platform === "scout";
 
   // プラットフォーム切替（useCallback化：毎レンダーの関数再生成を防止）
@@ -6621,6 +7062,7 @@ export default function ManuscriptStudio() {
     if (pid === "jobmedley") setTab("new");
     else if (pid === "airwork") setTab("airwork_main");
     else if (pid === "indeed") setTab("indeed_main");
+    else if (pid === "engage") setTab("engage_main");
     else if (pid === "scout") setTab("scout_main");
   }, []);
 
@@ -6652,6 +7094,8 @@ export default function ManuscriptStudio() {
               >
                 {isIndeed ? (
                   <Briefcase className="w-5 h-5 text-white" />
+                ) : isEngage ? (
+                  <Feather className="w-5 h-5 text-white" />
                 ) : isScout ? (
                   <Mail className="w-5 h-5 text-white" />
                 ) : (
@@ -6734,6 +7178,8 @@ export default function ManuscriptStudio() {
                     <Briefcase className="w-4 h-4" />
                   ) : p.id === "airwork" ? (
                     <Feather className="w-4 h-4" />
+                  ) : p.id === "engage" ? (
+                    <Feather className="w-4 h-4" />
                   ) : p.id === "scout" ? (
                     <Mail className="w-4 h-4" />
                   ) : (
@@ -6788,6 +7234,45 @@ export default function ManuscriptStudio() {
               {tab === "new" && <NewTab />}
               {tab === "rewrite" && <RewriteTab />}
               {tab === "commute" && <CommuteAreaTab />}
+            </div>
+          </>
+        )}
+
+        {/* ===== engage側 ===== */}
+        {isEngage && (
+          <>
+            {/* engage用サブタブ */}
+            <div className="grid grid-cols-2 md:grid-cols-2 gap-2 mb-6">
+              <button
+                onClick={() => setTab("engage_main")}
+                className={`group relative border rounded-lg p-3 text-left transition-all ${
+                  tab === "engage_main" || tab !== "image"
+                    ? "border-emerald-600 bg-emerald-50 ring-2 ring-emerald-100"
+                    : "border-slate-200 bg-white hover:border-slate-300 hover:bg-slate-100/50"
+                }`}
+              >
+                {(tab === "engage_main" || tab !== "image") && (
+                  <div className="absolute top-0 left-0 w-full h-0.5 bg-emerald-600 rounded-t-lg" />
+                )}
+                <div className="flex items-center gap-2 mb-1">
+                  <Feather
+                    className={`w-4 h-4 ${tab === "engage_main" || tab !== "image" ? "text-emerald-700" : "text-slate-500"}`}
+                  />
+                  <span
+                    className={`text-sm font-bold ${
+                      tab === "engage_main" || tab !== "image" ? "text-slate-900" : "text-slate-700"
+                    }`}
+                  >
+                    engage原稿作成
+                  </span>
+                </div>
+                <div className="text-[11px] text-slate-500">14フィールド・SEO最適化職種名</div>
+              </button>
+            </div>
+
+            {/* タブコンテンツ */}
+            <div className="bg-white border border-slate-200 rounded-lg p-5 md:p-6">
+              <EngageStudio />
             </div>
           </>
         )}
